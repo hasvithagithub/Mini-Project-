@@ -35,8 +35,6 @@ The system processes live traffic video, detects vehicles, identifies emergency 
 
 To reduce congestion, improve traffic efficiency, and ensure faster emergency response in smart cities.
 
----
 
-##  Author
 
-Manohar Reddy
+
