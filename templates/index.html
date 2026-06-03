@@ -209,16 +209,22 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
             margin-top: 25px;
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .stat-card {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 16px;
+            padding: 14px;
             text-align: center;
             transition: all 0.3s ease;
         }
@@ -229,16 +235,16 @@
         }
 
         .stat-label {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .stat-value {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
         }
 
@@ -248,6 +254,8 @@
         .stat-value.bus { color: #EC4899; }
         .stat-value.truck { color: var(--warning); }
         .stat-value.prediction { color: #60A5FA; }
+        .stat-value.crossed { color: #FFF; }
+        .stat-value.controller { color: #34D399; }
 
         /* Emergency Alert Panel */
         .emergency-banner {
@@ -302,16 +310,16 @@
 
         .signal-lights {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             background: #111;
-            padding: 10px 18px;
+            padding: 6px 14px;
             border-radius: 30px;
             border: 2px solid rgba(255, 255, 255, 0.05);
         }
 
         .light {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background-color: #222;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
@@ -321,11 +329,6 @@
         .light.red.active {
             background-color: var(--danger);
             box-shadow: 0 0 15px var(--danger);
-        }
-
-        .light.yellow.active {
-            background-color: var(--warning);
-            box-shadow: 0 0 15px var(--warning);
         }
 
         .light.green.active {
@@ -439,8 +442,12 @@
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Total Vehicles</div>
+                        <div class="stat-label">Total Present</div>
                         <div class="stat-value total" id="val-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Crossed Flow</div>
+                        <div class="stat-value crossed" id="val-crossed">0</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Passenger Cars</div>
@@ -459,8 +466,12 @@
                         <div class="stat-value truck" id="val-trucks">0</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">LSTM Predicted (1h)</div>
+                        <div class="stat-label">LSTM Predict (1h)</div>
                         <div class="stat-value prediction" id="val-prediction">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Controller</div>
+                        <div class="stat-value controller" id="val-controller">PyTorch DQN</div>
                     </div>
                 </div>
             </div>
@@ -470,24 +481,37 @@
         <div style="display: flex; flex-direction: column; gap: 30px;">
             <!-- Signal Control Card -->
             <div class="card">
-                <div class="card-title">Signal Optimization</div>
+                <div class="card-title">RL Signal Optimization</div>
                 <div class="signal-system">
-                    <div class="signal-indicator-box">
-                        <div>
-                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">Dynamic Traffic Signal</div>
-                            <div id="signal-state-text" style="font-size: 12px; color: var(--text-secondary);">Normal flow operation</div>
+                    <div class="signal-indicator-box" style="flex-direction: column; gap: 15px; align-items: stretch;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">Intersection Signal Phases</div>
+                                <div id="signal-state-text" style="font-size: 12px; color: var(--text-secondary);">DQN Optimizer active</div>
+                            </div>
                         </div>
-                        <div class="signal-lights">
-                            <div class="light red" id="light-red"></div>
-                            <div class="light yellow" id="light-yellow"></div>
-                            <div class="light green active" id="light-green"></div>
+                        <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
+                            <div style="text-align: center;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">LANE A (N-S)</div>
+                                <div class="signal-lights" style="padding: 6px 12px; gap: 6px;">
+                                    <div class="light red" id="light-a-red"></div>
+                                    <div class="light green" id="light-a-green"></div>
+                                </div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">LANE B (E-W)</div>
+                                <div class="signal-lights" style="padding: 6px 12px; gap: 6px;">
+                                    <div class="light red" id="light-b-red"></div>
+                                    <div class="light green" id="light-b-green"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="signal-indicator-box">
                         <div>
-                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">Corridor Hold Time</div>
-                            <div style="font-size: 12px; color: var(--text-secondary);">Adapts based on congestion index</div>
+                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">DQN Step Interval</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Decision cycle countdown</div>
                         </div>
                         <div class="signal-timer">
                             <div class="timer-label">Seconds Left</div>
@@ -509,7 +533,7 @@
 
     <footer>
         <p>&copy; 2026 AURA Intelligent Smart City Systems. All rights reserved.</p>
-        <p style="margin-top: 5px; font-size: 11px; opacity: 0.6;">Powered by YOLOv8, PyTorch LSTMs, and Advanced Computer Vision.</p>
+        <p style="margin-top: 5px; font-size: 11px; opacity: 0.6;">Powered by YOLOv8 track, PyTorch LSTMs, and PyTorch DQN Reinforcement Learning Agents.</p>
     </footer>
 
     <script>
@@ -524,6 +548,7 @@
 
         // Stats elements
         const valTotal = document.getElementById('val-total');
+        const valCrossed = document.getElementById('val-crossed');
         const valCars = document.getElementById('val-cars');
         const valBikes = document.getElementById('val-bikes');
         const valBuses = document.getElementById('val-buses');
@@ -532,9 +557,10 @@
         const valTimer = document.getElementById('val-timer');
 
         // Traffic Light elements
-        const lightRed = document.getElementById('light-red');
-        const lightYellow = document.getElementById('light-yellow');
-        const lightGreen = document.getElementById('light-green');
+        const lightARed = document.getElementById('light-a-red');
+        const lightAGreen = document.getElementById('light-a-green');
+        const lightBRed = document.getElementById('light-b-red');
+        const lightBGreen = document.getElementById('light-b-green');
 
         let statsInterval = null;
 
@@ -575,22 +601,30 @@
             }
         });
 
-        // Set Traffic lights based on timing/alert
-        function updateTrafficLights(signalTime, isAlert) {
-            lightRed.classList.remove('active');
-            lightYellow.classList.remove('active');
-            lightGreen.classList.remove('active');
+        // Set Traffic lights based on active DQN phase
+        function updateTrafficLights(signalTime, isAlert, currentPhase) {
+            lightARed.classList.remove('active');
+            lightAGreen.classList.remove('active');
+            lightBRed.classList.remove('active');
+            lightBGreen.classList.remove('active');
 
             if (isAlert) {
-                lightRed.classList.add('active'); // Emergency vehicles trigger hold red on cross streets, green for main corridor
-                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR ACTIVE</span>';
-            } else if (signalTime === 1 || signalTime === 2) {
-                // High density
-                lightGreen.classList.add('active');
-                signalStateText.innerText = 'High density: Priority Green';
-            } else if (signalTime <= 5) {
-                lightGreen.classList.add('active');
-                signalStateText.innerText = 'Normal traffic pattern';
+                // Flash red lights under emergency
+                lightARed.classList.add('active');
+                lightBRed.classList.add('active');
+                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR</span>';
+            } else {
+                if (currentPhase === 0) {
+                    // Lane A Green, Lane B Red
+                    lightAGreen.classList.add('active');
+                    lightBRed.classList.add('active');
+                    signalStateText.innerHTML = 'DQN Phase: <span style="color: var(--success); font-weight: bold;">LANE A (N-S) GREEN</span>';
+                } else {
+                    // Lane A Red, Lane B Green
+                    lightARed.classList.add('active');
+                    lightBGreen.classList.add('active');
+                    signalStateText.innerHTML = 'DQN Phase: <span style="color: #60A5FA; font-weight: bold;">LANE B (E-W) GREEN</span>';
+                }
             }
         }
 
@@ -605,7 +639,6 @@
                     placeholderBox.style.display = 'none';
                     streamImage.style.display = 'block';
                     
-                    // We append a timestamp to prevent cached streams
                     streamImage.src = '/video_feed?t=' + new Date().getTime();
                     
                     const modeLabel = mode === 'simulation' ? 'Simulated' : 'Camera';
@@ -653,6 +686,7 @@
                     
                     // Update metrics
                     valTotal.innerText = data.counts.total;
+                    valCrossed.innerText = data.total_crossed;
                     valCars.innerText = data.counts.car;
                     valBikes.innerText = data.counts.two_wheeler;
                     valBuses.innerText = data.counts.bus;
@@ -668,7 +702,7 @@
                     }
 
                     // Update Traffic Lights
-                    updateTrafficLights(data.signal_time, data.alert);
+                    updateTrafficLights(data.signal_time, data.alert, data.current_phase);
 
                     // Update composition chart
                     compositionChart.data.datasets[0].data = [
@@ -686,18 +720,20 @@
 
         function resetStats() {
             valTotal.innerText = '0';
+            valCrossed.innerText = '0';
             valCars.innerText = '0';
             valBikes.innerText = '0';
             valBuses.innerText = '0';
             valTrucks.innerText = '0';
             valPrediction.innerText = '0';
-            valTimer.innerText = '0s';
+            valTimer.innerText = '5s';
             emergencyAlertPanel.style.display = 'none';
-            signalStateText.innerText = 'Normal flow operation';
+            signalStateText.innerText = 'DQN Optimizer active';
 
-            lightRed.classList.remove('active');
-            lightYellow.classList.remove('active');
-            lightGreen.classList.add('active');
+            lightARed.classList.remove('active');
+            lightAGreen.classList.add('active');
+            lightBRed.classList.add('active');
+            lightBGreen.classList.remove('active');
 
             compositionChart.data.datasets[0].data = [0, 0, 0, 0];
             compositionChart.update();
