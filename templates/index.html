@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Control Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-surface: rgba(20, 27, 45, 0.7);
+            --bg-surface-hover: rgba(28, 38, 62, 0.8);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --primary: #3B82F6;
+            --primary-glow: rgba(59, 130, 246, 0.3);
+            --success: #10B981;
+            --success-glow: rgba(16, 185, 129, 0.2);
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            animation: pulse-slow 3s infinite ease-in-out;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FFF 0%, #9CA3AF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #FFF;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+            background-color: #2563EB;
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: #FFF;
+            box-shadow: 0 4px 14px var(--danger-glow);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+            background-color: #DC2626;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 40px;
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+            padding-left: 12px;
+        }
+
+        /* Live Stream Section */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            background-color: #05070B;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 40px;
+        }
+
+        .video-placeholder-icon {
+            font-size: 64px;
+            color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            transform: translateY(-2px);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-value.total { color: var(--primary); }
+        .stat-value.two_wheeler { color: #A78BFA; }
+        .stat-value.car { color: var(--success); }
+        .stat-value.bus { color: #EC4899; }
+        .stat-value.truck { color: var(--warning); }
+        .stat-value.prediction { color: #60A5FA; }
+
+        /* Emergency Alert Panel */
+        .emergency-banner {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: none;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            animation: pulse-red 2s infinite ease-in-out;
+        }
+
+        .emergency-icon {
+            font-size: 24px;
+            animation: bounce 1s infinite alternate;
+        }
+
+        .emergency-text {
+            flex-grow: 1;
+        }
+
+        .emergency-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--danger);
+        }
+
+        .emergency-desc {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Signals Area */
+        .signal-system {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .signal-indicator-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+        }
+
+        .signal-lights {
+            display: flex;
+            gap: 12px;
+            background: #111;
+            padding: 10px 18px;
+            border-radius: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .light {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #222;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+            transition: all 0.3s ease;
+        }
+
+        .light.red.active {
+            background-color: var(--danger);
+            box-shadow: 0 0 15px var(--danger);
+        }
+
+        .light.yellow.active {
+            background-color: var(--warning);
+            box-shadow: 0 0 15px var(--warning);
+        }
+
+        .light.green.active {
+            background-color: var(--success);
+            box-shadow: 0 0 15px var(--success);
+        }
+
+        .signal-timer {
+            text-align: right;
+        }
+
+        .timer-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .timer-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Chart Canvas wrapper */
+        .chart-wrapper {
+            margin-top: 25px;
+            height: 200px;
+            position: relative;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 40px;
+        }
+
+        /* Animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); }
+            50% { background: rgba(239, 68, 68, 0.25); border-color: rgba(239, 68, 68, 0.6); }
+        }
+
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <span class="logo-icon">🚦</span>
+            <div>
+                <h1>AURA Traffic System</h1>
+                <p style="font-size: 11px; color: var(--text-secondary);">Urban Congestion Management Engine</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="mode-select" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Source:</label>
+                <select id="mode-select" style="background: rgba(20, 27, 45, 0.9); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: all 0.3s;">
+                    <option value="simulation" selected>Simulated Traffic (Offline)</option>
+                    <option value="camera">Hardware Camera (Webcam/IP)</option>
+                </select>
+            </div>
+            <button id="btn-start" class="btn btn-primary">Start Stream</button>
+            <button id="btn-stop" class="btn btn-danger" style="display: none;">Stop Stream</button>
+            <a href="/camera" class="btn btn-secondary">Diagnostics</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Left Side: Live Feed & Stats -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <!-- Live Feed Card -->
+            <div class="card">
+                <div class="card-title">
+                    <span>Live Detection Feed</span>
+                    <span id="stream-status" style="font-size: 12px; color: var(--text-secondary); font-weight: 400; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-secondary); display: inline-block;"></span> Offline
+                    </span>
+                </div>
+
+                <div class="emergency-banner" id="emergency-alert-panel">
+                    <span class="emergency-icon">🚨</span>
+                    <div class="emergency-text">
+                        <div class="emergency-title">EMERGENCY VEHICLE DETECTED</div>
+                        <div class="emergency-desc">Dynamic Signal Override triggered. Initiating immediate green light corridor.</div>
+                    </div>
+                </div>
+
+                <div class="video-wrapper">
+                    <div class="video-placeholder" id="placeholder-box">
+                        <span class="video-placeholder-icon">📷</span>
+                        <p>Stream Offline. Click "Start Stream" to begin monitoring.</p>
+                        <p style="font-size: 12px; color: rgba(255,255,255,0.4);">Select simulated/hardware mode in the header settings.</p>
+                    </div>
+                    <img id="stream-image" src="" class="video-feed" alt="Live Feed">
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Vehicles</div>
+                        <div class="stat-value total" id="val-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Passenger Cars</div>
+                        <div class="stat-value car" id="val-cars">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Two Wheelers</div>
+                        <div class="stat-value two_wheeler" id="val-bikes">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Buses</div>
+                        <div class="stat-value bus" id="val-buses">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Commercial Trucks</div>
+                        <div class="stat-value truck" id="val-trucks">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">LSTM Predicted (1h)</div>
+                        <div class="stat-value prediction" id="val-prediction">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Signal Systems & Diagnostics -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <!-- Signal Control Card -->
+            <div class="card">
+                <div class="card-title">Signal Optimization</div>
+                <div class="signal-system">
+                    <div class="signal-indicator-box">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">Dynamic Traffic Signal</div>
+                            <div id="signal-state-text" style="font-size: 12px; color: var(--text-secondary);">Normal flow operation</div>
+                        </div>
+                        <div class="signal-lights">
+                            <div class="light red" id="light-red"></div>
+                            <div class="light yellow" id="light-yellow"></div>
+                            <div class="light green active" id="light-green"></div>
+                        </div>
+                    </div>
+
+                    <div class="signal-indicator-box">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">Corridor Hold Time</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Adapts based on congestion index</div>
+                        </div>
+                        <div class="signal-timer">
+                            <div class="timer-label">Seconds Left</div>
+                            <div class="timer-value" id="val-timer">5s</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis & Diagnostics -->
+            <div class="card">
+                <div class="card-title">Vehicle Composition</div>
+                <div class="chart-wrapper">
+                    <canvas id="compositionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 AURA Intelligent Smart City Systems. All rights reserved.</p>
+        <p style="margin-top: 5px; font-size: 11px; opacity: 0.6;">Powered by YOLOv8, PyTorch LSTMs, and Advanced Computer Vision.</p>
+    </footer>
+
+    <script>
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const modeSelect = document.getElementById('mode-select');
+        const streamImage = document.getElementById('stream-image');
+        const placeholderBox = document.getElementById('placeholder-box');
+        const streamStatus = document.getElementById('stream-status');
+        const emergencyAlertPanel = document.getElementById('emergency-alert-panel');
+        const signalStateText = document.getElementById('signal-state-text');
+
+        // Stats elements
+        const valTotal = document.getElementById('val-total');
+        const valCars = document.getElementById('val-cars');
+        const valBikes = document.getElementById('val-bikes');
+        const valBuses = document.getElementById('val-buses');
+        const valTrucks = document.getElementById('val-trucks');
+        const valPrediction = document.getElementById('val-prediction');
+        const valTimer = document.getElementById('val-timer');
+
+        // Traffic Light elements
+        const lightRed = document.getElementById('light-red');
+        const lightYellow = document.getElementById('light-yellow');
+        const lightGreen = document.getElementById('light-green');
+
+        let statsInterval = null;
+
+        // Initialize Chart.js
+        const ctx = document.getElementById('compositionChart').getContext('2d');
+        const compositionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cars', 'Bikes', 'Buses', 'Trucks'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [
+                        '#10B981', // green
+                        '#A78BFA', // purple
+                        '#EC4899', // pink
+                        '#F59E0B'  // amber
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#9CA3AF',
+                            font: {
+                                family: 'Inter',
+                                size: 12
+                            }
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+
+        // Set Traffic lights based on timing/alert
+        function updateTrafficLights(signalTime, isAlert) {
+            lightRed.classList.remove('active');
+            lightYellow.classList.remove('active');
+            lightGreen.classList.remove('active');
+
+            if (isAlert) {
+                lightRed.classList.add('active'); // Emergency vehicles trigger hold red on cross streets, green for main corridor
+                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR ACTIVE</span>';
+            } else if (signalTime === 1 || signalTime === 2) {
+                // High density
+                lightGreen.classList.add('active');
+                signalStateText.innerText = 'High density: Priority Green';
+            } else if (signalTime <= 5) {
+                lightGreen.classList.add('active');
+                signalStateText.innerText = 'Normal traffic pattern';
+            }
+        }
+
+        btnStart.addEventListener('click', async () => {
+            const mode = modeSelect.value;
+            try {
+                const response = await fetch(`/start_camera?mode=${mode}`);
+                if (response.ok) {
+                    // Update UI state
+                    btnStart.style.display = 'none';
+                    btnStop.style.display = 'block';
+                    placeholderBox.style.display = 'none';
+                    streamImage.style.display = 'block';
+                    
+                    // We append a timestamp to prevent cached streams
+                    streamImage.src = '/video_feed?t=' + new Date().getTime();
+                    
+                    const modeLabel = mode === 'simulation' ? 'Simulated' : 'Camera';
+                    streamStatus.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success);"></span> Active (${modeLabel})`;
+
+                    // Start statistics polling
+                    statsInterval = setInterval(fetchStats, 1000);
+                } else {
+                    alert('Failed to start traffic stream. Error: ' + await response.text());
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Connection error starting camera.');
+            }
+        });
+
+        btnStop.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/stop_camera');
+                if (response.ok) {
+                    btnStop.style.display = 'none';
+                    btnStart.style.display = 'block';
+                    streamImage.style.display = 'none';
+                    streamImage.src = '';
+                    placeholderBox.style.display = 'flex';
+                    
+                    streamStatus.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-secondary); display: inline-block;"></span> Offline';
+
+                    if (statsInterval) {
+                        clearInterval(statsInterval);
+                        statsInterval = null;
+                    }
+                    resetStats();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        async function fetchStats() {
+            try {
+                const response = await fetch('/stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update metrics
+                    valTotal.innerText = data.counts.total;
+                    valCars.innerText = data.counts.car;
+                    valBikes.innerText = data.counts.two_wheeler;
+                    valBuses.innerText = data.counts.bus;
+                    valTrucks.innerText = data.counts.truck;
+                    valPrediction.innerText = data.avg_total_vehicles;
+                    valTimer.innerText = data.signal_time + 's';
+
+                    // Handle emergency alert banner
+                    if (data.alert) {
+                        emergencyAlertPanel.style.display = 'flex';
+                    } else {
+                        emergencyAlertPanel.style.display = 'none';
+                    }
+
+                    // Update Traffic Lights
+                    updateTrafficLights(data.signal_time, data.alert);
+
+                    // Update composition chart
+                    compositionChart.data.datasets[0].data = [
+                        data.counts.car,
+                        data.counts.two_wheeler,
+                        data.counts.bus,
+                        data.counts.truck
+                    ];
+                    compositionChart.update();
+                }
+            } catch (err) {
+                console.error('Error fetching stats:', err);
+            }
+        }
+
+        function resetStats() {
+            valTotal.innerText = '0';
+            valCars.innerText = '0';
+            valBikes.innerText = '0';
+            valBuses.innerText = '0';
+            valTrucks.innerText = '0';
+            valPrediction.innerText = '0';
+            valTimer.innerText = '0s';
+            emergencyAlertPanel.style.display = 'none';
+            signalStateText.innerText = 'Normal flow operation';
+
+            lightRed.classList.remove('active');
+            lightYellow.classList.remove('active');
+            lightGreen.classList.add('active');
+
+            compositionChart.data.datasets[0].data = [0, 0, 0, 0];
+            compositionChart.update();
+        }
+    </script>
+</body>
+</html>
