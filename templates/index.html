@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Traffic Control Dashboard</title>
+    <title>AURA Traffic Control Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='chart.js') }}"></script>
     <style>
         :root {
-            --bg-base: #0B0F19;
-            --bg-surface: rgba(20, 27, 45, 0.7);
-            --bg-surface-hover: rgba(28, 38, 62, 0.8);
-            --border-color: rgba(255, 255, 255, 0.08);
+            --bg-base: #060913;
+            --bg-surface: rgba(17, 24, 43, 0.55);
+            --bg-surface-hover: rgba(26, 36, 64, 0.7);
+            --border-color: rgba(255, 255, 255, 0.06);
             --text-primary: #F3F4F6;
             --text-secondary: #9CA3AF;
             --primary: #3B82F6;
-            --primary-glow: rgba(59, 130, 246, 0.3);
+            --primary-glow: rgba(59, 130, 246, 0.25);
             --success: #10B981;
             --success-glow: rgba(16, 185, 129, 0.2);
             --warning: #F59E0B;
             --danger: #EF4444;
-            --danger-glow: rgba(239, 68, 68, 0.4);
+            --danger-glow: rgba(239, 68, 68, 0.35);
         }
 
         * {
@@ -36,8 +36,9 @@
             min-height: 100vh;
             overflow-x: hidden;
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 45%);
+            background-attachment: fixed;
         }
 
         header {
@@ -46,8 +47,9 @@
             align-items: center;
             padding: 20px 40px;
             border-bottom: 1px solid var(--border-color);
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(12px);
+            background: rgba(6, 9, 19, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -60,15 +62,16 @@
         }
 
         .logo-icon {
-            font-size: 28px;
+            font-size: 30px;
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
             animation: pulse-slow 3s infinite ease-in-out;
         }
 
         h1 {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 700;
-            background: linear-gradient(135deg, #FFF 0%, #9CA3AF 100%);
+            background: linear-gradient(135deg, #FFFFFF 30%, #A5B4FC 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -84,25 +87,25 @@
             font-weight: 600;
             font-size: 14px;
             padding: 10px 20px;
-            border-radius: 8px;
+            border-radius: 10px;
             border: 1px solid transparent;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             gap: 8px;
+            user-select: none;
         }
 
         .btn-primary {
-            background-color: var(--primary);
+            background: linear-gradient(135deg, var(--primary) 0%, #1D4ED8 100%);
             color: #FFF;
             box-shadow: 0 4px 14px var(--primary-glow);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
-            background-color: #2563EB;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
         }
 
         .btn-secondary {
@@ -112,24 +115,23 @@
         }
 
         .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.09);
             transform: translateY(-2px);
         }
 
         .btn-danger {
-            background-color: var(--danger);
+            background: linear-gradient(135deg, var(--danger) 0%, #B91C1C 100%);
             color: #FFF;
             box-shadow: 0 4px 14px var(--danger-glow);
         }
 
         .btn-danger:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
-            background-color: #DC2626;
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1440px;
             margin: 0 auto;
             padding: 30px 40px;
             display: grid;
@@ -137,7 +139,7 @@
             gap: 30px;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
             .container {
                 grid-template-columns: 1fr;
             }
@@ -148,14 +150,15 @@
             border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 24px;
-            backdrop-filter: blur(16px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .card:hover {
-            border-color: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
         }
 
         .card-title {
@@ -174,7 +177,7 @@
         .video-wrapper {
             position: relative;
             width: 100%;
-            background-color: #05070B;
+            background-color: #030408;
             border-radius: 12px;
             overflow: hidden;
             aspect-ratio: 16/9;
@@ -203,7 +206,8 @@
 
         .video-placeholder-icon {
             font-size: 64px;
-            color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.08);
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.03));
         }
 
         /* Stats Grid */
@@ -230,8 +234,9 @@
         }
 
         .stat-card:hover {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             transform: translateY(-2px);
+            border-color: rgba(255,255,255,0.1);
         }
 
         .stat-label {
@@ -248,19 +253,19 @@
             font-weight: 700;
         }
 
-        .stat-value.total { color: var(--primary); }
+        .stat-value.total { color: var(--primary); text-shadow: 0 0 8px rgba(59,130,246,0.3); }
         .stat-value.two_wheeler { color: #A78BFA; }
         .stat-value.car { color: var(--success); }
         .stat-value.bus { color: #EC4899; }
         .stat-value.truck { color: var(--warning); }
         .stat-value.prediction { color: #60A5FA; }
-        .stat-value.crossed { color: #FFF; }
+        .stat-value.crossed { color: #F3F4F6; }
         .stat-value.controller { color: #34D399; }
 
         /* Emergency Alert Panel */
         .emergency-banner {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.4);
             border-radius: 12px;
             padding: 16px 20px;
             display: none;
@@ -271,7 +276,7 @@
         }
 
         .emergency-icon {
-            font-size: 24px;
+            font-size: 26px;
             animation: bounce 1s infinite alternate;
         }
 
@@ -284,11 +289,12 @@
             font-weight: 700;
             font-size: 16px;
             color: var(--danger);
+            letter-spacing: 0.05em;
         }
 
         .emergency-desc {
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(243, 244, 246, 0.9);
         }
 
         /* Signals Area */
@@ -310,30 +316,30 @@
 
         .signal-lights {
             display: flex;
-            gap: 8px;
-            background: #111;
-            padding: 6px 14px;
+            gap: 10px;
+            background: #0D0E12;
+            padding: 8px 16px;
             border-radius: 30px;
-            border: 2px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .light {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
-            background-color: #222;
+            background-color: #1A1C23;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
             transition: all 0.3s ease;
         }
 
         .light.red.active {
             background-color: var(--danger);
-            box-shadow: 0 0 15px var(--danger);
+            box-shadow: 0 0 15px var(--danger), inset 0 2px 4px rgba(255,255,255,0.4);
         }
 
         .light.green.active {
             background-color: var(--success);
-            box-shadow: 0 0 15px var(--success);
+            box-shadow: 0 0 15px var(--success), inset 0 2px 4px rgba(255,255,255,0.4);
         }
 
         .signal-timer {
@@ -353,11 +359,90 @@
             color: var(--text-primary);
         }
 
-        /* Chart Canvas wrapper */
-        .chart-wrapper {
-            margin-top: 25px;
-            height: 200px;
-            position: relative;
+        /* Interactive Controls Styling */
+        .btn-group {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .btn-tab.active {
+            background: var(--primary);
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Console Logs Box */
+        .console-box {
+            font-family: 'Courier New', monospace;
+            background-color: #030611;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            height: 150px;
+            overflow-y: auto;
+            color: #34D399;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .console-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .console-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .console-box::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        /* Range Slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
         }
 
         /* Footer */
@@ -377,8 +462,8 @@
         }
 
         @keyframes pulse-red {
-            0%, 100% { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); }
-            50% { background: rgba(239, 68, 68, 0.25); border-color: rgba(239, 68, 68, 0.6); }
+            0%, 100% { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3); }
+            50% { background: rgba(239, 68, 68, 0.22); border-color: rgba(239, 68, 68, 0.6); }
         }
 
         @keyframes bounce {
@@ -393,14 +478,14 @@
         <div class="logo-container">
             <span class="logo-icon">🚦</span>
             <div>
-                <h1>AURA Traffic System</h1>
-                <p style="font-size: 11px; color: var(--text-secondary);">Urban Congestion Management Engine</p>
+                <h1>AURA Smart Traffic Hub</h1>
+                <p style="font-size: 11px; color: var(--text-secondary);">Urban Congestion Optimizer & Forecast Engine</p>
             </div>
         </div>
         <div class="header-actions">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <label for="mode-select" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Source:</label>
-                <select id="mode-select" style="background: rgba(20, 27, 45, 0.9); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: all 0.3s;">
+                <select id="mode-select" style="background: rgba(20, 27, 45, 0.95); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: all 0.3s;">
                     <option value="simulation" selected>Simulated Traffic (Offline)</option>
                     <option value="camera">Hardware Camera (Webcam/IP)</option>
                 </select>
@@ -412,7 +497,7 @@
     </header>
 
     <div class="container">
-        <!-- Left Side: Live Feed & Stats -->
+        <!-- Left Side: Live Feed & Chart -->
         <div style="display: flex; flex-direction: column; gap: 30px;">
             <!-- Live Feed Card -->
             <div class="card">
@@ -475,11 +560,83 @@
                     </div>
                 </div>
             </div>
+
+            <!-- LSTM Flow Forecasting Line Chart -->
+            <div class="card">
+                <div class="card-title">Real-Time Traffic Density Forecasting</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                    Comparing live traffic vehicle density with LSTM time-series forecasting trend values.
+                </div>
+                <div style="height: 220px; position: relative; width: 100%;">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+            </div>
         </div>
 
-        <!-- Right Side: Signal Systems & Diagnostics -->
+        <!-- Right Side: Controls & Optimization Metrics -->
         <div style="display: flex; flex-direction: column; gap: 30px;">
-            <!-- Signal Control Card -->
+            <!-- Interactive Simulator Overrides -->
+            <div class="card">
+                <div class="card-title">Simulator & Override Console</div>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Control Mode Toggles -->
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Control Engine Mode</div>
+                        <div class="btn-group">
+                            <div id="btn-mode-dqn" class="btn-tab active">DQN Agent</div>
+                            <div id="btn-mode-timer" class="btn-tab">Fixed Timer</div>
+                            <div id="btn-mode-manual" class="btn-tab">Manual</div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Controls Panel -->
+                    <div id="manual-controls" style="display: none;">
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Manual Signal Forced Phase</div>
+                        <div class="control-grid">
+                            <button id="btn-force-a" class="btn btn-secondary" style="justify-content: center; font-size: 12px; width: 100%;">Force Lane A Green</button>
+                            <button id="btn-force-b" class="btn btn-secondary" style="justify-content: center; font-size: 12px; width: 100%;">Force Lane B Green</button>
+                        </div>
+                    </div>
+
+                    <!-- Spawn Intensity Slider -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">
+                            <span>Simulator Congestion Level</span>
+                            <span id="val-spawn-rate" style="color: var(--primary); font-family: monospace; font-weight: 700;">35%</span>
+                        </div>
+                        <input id="slider-spawn-rate" type="range" min="10" max="95" value="35">
+                    </div>
+
+                    <!-- DQN Cycle Time Slider -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">
+                            <span>DQN Decision Cycle Time</span>
+                            <span id="val-cycle-time" style="color: var(--primary); font-family: monospace; font-weight: 700;">5s</span>
+                        </div>
+                        <input id="slider-cycle-time" type="range" min="2" max="25" value="5">
+                    </div>
+
+                    <!-- Vehicle Speed Limit Slider -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">
+                            <span>Simulator Speed Limit</span>
+                            <span id="val-speed-limit" style="color: var(--primary); font-family: monospace; font-weight: 700;">80 km/h</span>
+                        </div>
+                        <input id="slider-speed-limit" type="range" min="3" max="15" value="8">
+                    </div>
+
+                    <!-- Emergency Spawners -->
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Simulate Emergency Priority Corridor</div>
+                        <div class="control-grid">
+                            <button id="btn-spawn-ambulance" class="btn btn-danger" style="justify-content: center; font-size: 12px; width: 100%;">🚨 Spawn Ambulance</button>
+                            <button id="btn-spawn-fire" class="btn btn-danger" style="justify-content: center; font-size: 12px; width: 100%; background: linear-gradient(135deg, #FF5A36 0%, #C22000 100%);">🔥 Spawn Fire Truck</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RL Signal Optimization Card -->
             <div class="card">
                 <div class="card-title">RL Signal Optimization</div>
                 <div class="signal-system">
@@ -490,17 +647,17 @@
                                 <div id="signal-state-text" style="font-size: 12px; color: var(--text-secondary);">DQN Optimizer active</div>
                             </div>
                         </div>
-                        <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
                             <div style="text-align: center;">
                                 <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">LANE A (N-S)</div>
-                                <div class="signal-lights" style="padding: 6px 12px; gap: 6px;">
+                                <div class="signal-lights">
                                     <div class="light red" id="light-a-red"></div>
                                     <div class="light green" id="light-a-green"></div>
                                 </div>
                             </div>
                             <div style="text-align: center;">
                                 <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">LANE B (E-W)</div>
-                                <div class="signal-lights" style="padding: 6px 12px; gap: 6px;">
+                                <div class="signal-lights">
                                     <div class="light red" id="light-b-red"></div>
                                     <div class="light green" id="light-b-green"></div>
                                 </div>
@@ -510,7 +667,7 @@
 
                     <div class="signal-indicator-box">
                         <div>
-                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">DQN Step Interval</div>
+                            <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px;">DQN Optimizer Cycle</div>
                             <div style="font-size: 12px; color: var(--text-secondary);">Decision cycle countdown</div>
                         </div>
                         <div class="signal-timer">
@@ -521,10 +678,18 @@
                 </div>
             </div>
 
-            <!-- Analysis & Diagnostics -->
+            <!-- DQN Optimizer Logs -->
+            <div class="card">
+                <div class="card-title">DQN Optimizer Logs</div>
+                <div class="console-box" id="console-logs">
+                    [System idle. Start stream to initialize logs...]
+                </div>
+            </div>
+
+            <!-- Vehicle Composition Doughnut -->
             <div class="card">
                 <div class="card-title">Vehicle Composition</div>
-                <div class="chart-wrapper">
+                <div style="height: 180px; position: relative; width: 100%;">
                     <canvas id="compositionChart"></canvas>
                 </div>
             </div>
@@ -546,6 +711,23 @@
         const emergencyAlertPanel = document.getElementById('emergency-alert-panel');
         const signalStateText = document.getElementById('signal-state-text');
 
+        // Interactive control elements
+        const btnModeDqn = document.getElementById('btn-mode-dqn');
+        const btnModeTimer = document.getElementById('btn-mode-timer');
+        const btnModeManual = document.getElementById('btn-mode-manual');
+        const manualControls = document.getElementById('manual-controls');
+        const btnForceA = document.getElementById('btn-force-a');
+        const btnForceB = document.getElementById('btn-force-b');
+        const sliderSpawnRate = document.getElementById('slider-spawn-rate');
+        const valSpawnRate = document.getElementById('val-spawn-rate');
+        const sliderCycleTime = document.getElementById('slider-cycle-time');
+        const valCycleTime = document.getElementById('val-cycle-time');
+        const sliderSpeedLimit = document.getElementById('slider-speed-limit');
+        const valSpeedLimit = document.getElementById('val-speed-limit');
+        const btnSpawnAmbulance = document.getElementById('btn-spawn-ambulance');
+        const btnSpawnFire = document.getElementById('btn-spawn-fire');
+        const consoleLogs = document.getElementById('console-logs');
+
         // Stats elements
         const valTotal = document.getElementById('val-total');
         const valCrossed = document.getElementById('val-crossed');
@@ -554,6 +736,7 @@
         const valBuses = document.getElementById('val-buses');
         const valTrucks = document.getElementById('val-trucks');
         const valPrediction = document.getElementById('val-prediction');
+        const valController = document.getElementById('val-controller');
         const valTimer = document.getElementById('val-timer');
 
         // Traffic Light elements
@@ -563,67 +746,241 @@
         const lightBGreen = document.getElementById('light-b-green');
 
         let statsInterval = null;
+        let selectedControlMode = 'dqn';
+        let selectedManualPhase = 0;
 
-        // Initialize Chart.js
-        const ctx = document.getElementById('compositionChart').getContext('2d');
-        const compositionChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Cars', 'Bikes', 'Buses', 'Trucks'],
-                datasets: [{
-                    data: [0, 0, 0, 0],
-                    backgroundColor: [
-                        '#10B981', // green
-                        '#A78BFA', // purple
-                        '#EC4899', // pink
-                        '#F59E0B'  // amber
-                    ],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: '#9CA3AF',
-                            font: {
-                                family: 'Inter',
-                                size: 12
-                            }
+        let forecastChart = null;
+        let compositionChart = null;
+
+        // Initialize Forecast Line Chart
+        try {
+            const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+            forecastChart = new Chart(forecastCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(15).fill(''),
+                    datasets: [
+                        {
+                            label: 'Actual Volume',
+                            data: Array(15).fill(0),
+                            borderColor: '#60A5FA', // Neon Sky Blue
+                            backgroundColor: 'rgba(96, 165, 250, 0.12)', // Glowing area
+                            borderWidth: 2.5,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#60A5FA',
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'LSTM Prediction',
+                            data: Array(15).fill(0),
+                            borderColor: '#34D399', // Neon Emerald Green
+                            borderWidth: 2.5,
+                            borderDash: [6, 4],
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#34D399',
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            suggestedMin: 0,
+                            suggestedMax: 8,
+                            grid: { color: 'rgba(255, 255, 255, 0.06)' },
+                            ticks: { color: '#9CA3AF', font: { family: 'Inter', size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9CA3AF', font: { family: 'Inter', size: 9 }, display: true }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#F3F4F6', boxWidth: 15, font: { family: 'Inter', size: 11, weight: '500' } }
                         }
                     }
+                }
+            });
+        } catch (err) {
+            console.error("Failed to initialize forecastChart:", err);
+        }
+
+        // Initialize Composition Chart
+        try {
+            const compositionCtx = document.getElementById('compositionChart').getContext('2d');
+            compositionChart = new Chart(compositionCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Cars', 'Bikes', 'Buses', 'Trucks'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#10B981', // green
+                            '#A78BFA', // purple
+                            '#EC4899', // pink
+                            '#F59E0B'  // amber
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
                 },
-                cutout: '70%'
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: { family: 'Inter', size: 11 }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        } catch (err) {
+            console.error("Failed to initialize compositionChart:", err);
+        }
+
+        // Set Control Engine Mode route helper
+        async function updateControlMode(mode, phase) {
+            try {
+                await fetch(`/set_control_mode?mode=${mode}&phase=${phase}`);
+            } catch (err) {
+                console.error("Error setting control mode:", err);
+            }
+        }
+
+        // Toggle Buttons Click Handlers
+        btnModeDqn.addEventListener('click', () => {
+            btnModeDqn.classList.add('active');
+            btnModeTimer.classList.remove('active');
+            btnModeManual.classList.remove('active');
+            manualControls.style.display = 'none';
+            selectedControlMode = 'dqn';
+            updateControlMode('dqn', 0);
+        });
+
+        btnModeTimer.addEventListener('click', () => {
+            btnModeTimer.classList.add('active');
+            btnModeDqn.classList.remove('active');
+            btnModeManual.classList.remove('active');
+            manualControls.style.display = 'none';
+            selectedControlMode = 'timer';
+            updateControlMode('timer', 0);
+        });
+
+        btnModeManual.addEventListener('click', () => {
+            btnModeManual.classList.add('active');
+            btnModeDqn.classList.remove('active');
+            btnModeTimer.classList.remove('active');
+            manualControls.style.display = 'block';
+            selectedControlMode = 'manual';
+            updateControlMode('manual', selectedManualPhase);
+        });
+
+        btnForceA.addEventListener('click', () => {
+            selectedManualPhase = 0;
+            btnForceA.classList.remove('btn-secondary');
+            btnForceA.classList.add('btn-primary');
+            btnForceB.classList.remove('btn-primary');
+            btnForceB.classList.add('btn-secondary');
+            updateControlMode('manual', 0);
+        });
+
+        btnForceB.addEventListener('click', () => {
+            selectedManualPhase = 1;
+            btnForceB.classList.remove('btn-secondary');
+            btnForceB.classList.add('btn-primary');
+            btnForceA.classList.remove('btn-primary');
+            btnForceA.classList.add('btn-secondary');
+            updateControlMode('manual', 1);
+        });
+
+        sliderSpawnRate.addEventListener('input', async (e) => {
+            const val = e.target.value;
+            valSpawnRate.innerText = val + '%';
+            const rate = parseFloat(val) / 100.0;
+            try {
+                await fetch(`/set_spawn_rate?rate=${rate}`);
+            } catch (err) {
+                console.error("Error changing spawn rate:", err);
             }
         });
 
-        // Set Traffic lights based on active DQN phase
-        function updateTrafficLights(signalTime, isAlert, currentPhase) {
+        sliderCycleTime.addEventListener('input', async (e) => {
+            const val = e.target.value;
+            valCycleTime.innerText = val + 's';
+            try {
+                await fetch(`/set_cycle_time?cycle=${val}`);
+            } catch (err) {
+                console.error("Error changing cycle time:", err);
+            }
+        });
+
+        sliderSpeedLimit.addEventListener('input', async (e) => {
+            const val = e.target.value;
+            const speedKmh = val * 10;
+            valSpeedLimit.innerText = speedKmh + ' km/h';
+            try {
+                await fetch(`/set_speed_limit?speed=${val}`);
+            } catch (err) {
+                console.error("Error changing speed limit:", err);
+            }
+        });
+
+        async function triggerEmergency(type) {
+            try {
+                const response = await fetch(`/trigger_emergency?type=${type}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(data.message);
+                }
+            } catch (err) {
+                console.error("Error triggering emergency vehicle:", err);
+            }
+        }
+
+        btnSpawnAmbulance.addEventListener('click', () => triggerEmergency('ambulence'));
+        btnSpawnFire.addEventListener('click', () => triggerEmergency('fire_truck'));
+
+        // Set Traffic lights based on active phase
+        function updateTrafficLights(signalTime, isAlert, currentPhase, controlMode) {
             lightARed.classList.remove('active');
             lightAGreen.classList.remove('active');
             lightBRed.classList.remove('active');
             lightBGreen.classList.remove('active');
 
             if (isAlert) {
-                // Flash red lights under emergency
-                lightARed.classList.add('active');
+                lightAGreen.classList.add('active');
                 lightBRed.classList.add('active');
-                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR</span>';
+                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR (LANE A GREEN)</span>';
             } else {
                 if (currentPhase === 0) {
-                    // Lane A Green, Lane B Red
                     lightAGreen.classList.add('active');
                     lightBRed.classList.add('active');
-                    signalStateText.innerHTML = 'DQN Phase: <span style="color: var(--success); font-weight: bold;">LANE A (N-S) GREEN</span>';
+                    if (controlMode === 'manual') {
+                        signalStateText.innerHTML = 'Manual Override: <span style="color: var(--success); font-weight: bold;">LANE A GREEN</span>';
+                    } else {
+                        signalStateText.innerHTML = 'DQN Phase: <span style="color: var(--success); font-weight: bold;">LANE A (N-S) GREEN</span>';
+                    }
                 } else {
-                    // Lane A Red, Lane B Green
                     lightARed.classList.add('active');
                     lightBGreen.classList.add('active');
-                    signalStateText.innerHTML = 'DQN Phase: <span style="color: #60A5FA; font-weight: bold;">LANE B (E-W) GREEN</span>';
+                    if (controlMode === 'manual') {
+                        signalStateText.innerHTML = 'Manual Override: <span style="color: #60A5FA; font-weight: bold;">LANE B GREEN</span>';
+                    } else {
+                        signalStateText.innerHTML = 'DQN Phase: <span style="color: #60A5FA; font-weight: bold;">LANE B (E-W) GREEN</span>';
+                    }
                 }
             }
         }
@@ -633,7 +990,6 @@
             try {
                 const response = await fetch(`/start_camera?mode=${mode}`);
                 if (response.ok) {
-                    // Update UI state
                     btnStart.style.display = 'none';
                     btnStop.style.display = 'block';
                     placeholderBox.style.display = 'none';
@@ -643,6 +999,14 @@
                     
                     const modeLabel = mode === 'simulation' ? 'Simulated' : 'Camera';
                     streamStatus.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success);"></span> Active (${modeLabel})`;
+
+                    // Clear forecast chart arrays on start
+                    if (forecastChart) {
+                        forecastChart.data.datasets[0].data = Array(15).fill(0);
+                        forecastChart.data.datasets[1].data = Array(15).fill(0);
+                        forecastChart.data.labels = Array(15).fill('');
+                        forecastChart.update();
+                    }
 
                     // Start statistics polling
                     statsInterval = setInterval(fetchStats, 1000);
@@ -692,7 +1056,37 @@
                     valBuses.innerText = data.counts.bus;
                     valTrucks.innerText = data.counts.truck;
                     valPrediction.innerText = data.avg_total_vehicles;
-                    valTimer.innerText = data.signal_time + 's';
+                    valTimer.innerText = data.control_mode === 'manual' ? 'N/A' : data.signal_time + 's';
+
+                    // Synchronize control mode tabs & text
+                    btnModeDqn.classList.remove('active');
+                    btnModeTimer.classList.remove('active');
+                    btnModeManual.classList.remove('active');
+                    if (data.control_mode === 'dqn') {
+                        btnModeDqn.classList.add('active');
+                        manualControls.style.display = 'none';
+                        if (valController) valController.innerText = 'PyTorch DQN';
+                    } else if (data.control_mode === 'timer') {
+                        btnModeTimer.classList.add('active');
+                        manualControls.style.display = 'none';
+                        if (valController) valController.innerText = 'Fixed Timer';
+                    } else {
+                        btnModeManual.classList.add('active');
+                        manualControls.style.display = 'block';
+                        if (valController) valController.innerText = 'Manual Control';
+                    }
+
+                    // Update simulator slider to match server state (if adjusted elsewhere)
+                    sliderSpawnRate.value = Math.round(data.spawn_rate * 100);
+                    valSpawnRate.innerText = Math.round(data.spawn_rate * 100) + '%';
+
+                    // Update cycle time slider to match server state
+                    sliderCycleTime.value = data.dqn_cycle_time;
+                    valCycleTime.innerText = data.dqn_cycle_time + 's';
+
+                    // Update speed limit slider to match server state
+                    sliderSpeedLimit.value = data.simulation_speed_limit;
+                    valSpeedLimit.innerText = (data.simulation_speed_limit * 10) + ' km/h';
 
                     // Handle emergency alert banner
                     if (data.alert) {
@@ -702,16 +1096,42 @@
                     }
 
                     // Update Traffic Lights
-                    updateTrafficLights(data.signal_time, data.alert, data.current_phase);
+                    updateTrafficLights(data.signal_time, data.alert, data.current_phase, data.control_mode);
 
                     // Update composition chart
-                    compositionChart.data.datasets[0].data = [
-                        data.counts.car,
-                        data.counts.two_wheeler,
-                        data.counts.bus,
-                        data.counts.truck
-                    ];
-                    compositionChart.update();
+                    if (compositionChart) {
+                        compositionChart.data.datasets[0].data = [
+                            data.counts.car,
+                            data.counts.two_wheeler,
+                            data.counts.bus,
+                            data.counts.truck
+                        ];
+                        compositionChart.update();
+                    }
+
+                    // Update Forecast Line Chart (sliding window)
+                    if (forecastChart) {
+                        forecastChart.data.datasets[0].data.push(Number(data.counts.total));
+                        forecastChart.data.datasets[0].data.shift();
+                        forecastChart.data.datasets[1].data.push(Number(data.avg_total_vehicles));
+                        forecastChart.data.datasets[1].data.shift();
+
+                        // Add real-time timestamp labels
+                        const now = new Date();
+                        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        forecastChart.data.labels.push(timeStr);
+                        forecastChart.data.labels.shift();
+
+                        forecastChart.update();
+                    }
+
+                    // Render DQN console logs
+                    if (data.dqn_logs && data.dqn_logs.length > 0) {
+                        consoleLogs.innerHTML = data.dqn_logs.join('<br>');
+                        consoleLogs.scrollTop = consoleLogs.scrollHeight;
+                    } else {
+                        consoleLogs.innerText = '[DQN Optimizer initialized. Waiting for decision cycles...]';
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching stats:', err);
@@ -727,16 +1147,27 @@
             valTrucks.innerText = '0';
             valPrediction.innerText = '0';
             valTimer.innerText = '5s';
+            valController.innerText = 'PyTorch DQN';
             emergencyAlertPanel.style.display = 'none';
             signalStateText.innerText = 'DQN Optimizer active';
+            consoleLogs.innerText = '[System idle. Start stream to initialize logs...]';
 
             lightARed.classList.remove('active');
             lightAGreen.classList.add('active');
             lightBRed.classList.add('active');
             lightBGreen.classList.remove('active');
 
-            compositionChart.data.datasets[0].data = [0, 0, 0, 0];
-            compositionChart.update();
+            if (compositionChart) {
+                compositionChart.data.datasets[0].data = [0, 0, 0, 0];
+                compositionChart.update();
+            }
+
+            if (forecastChart) {
+                forecastChart.data.datasets[0].data = Array(15).fill(0);
+                forecastChart.data.datasets[1].data = Array(15).fill(0);
+                forecastChart.data.labels = Array(15).fill('');
+                forecastChart.update();
+            }
         }
     </script>
 </body>

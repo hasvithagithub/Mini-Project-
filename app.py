@@ -57,6 +57,23 @@ MAX_HISTORY = 10
 avg_total_vehicles = 0.0    # displayed predicted value
 simulation_mode = False
 
+# New global state variables for interactivity
+control_mode = "dqn"         # "dqn" or "manual"
+manual_override_phase = 0    # 0: Lane A green, 1: Lane B green
+dqn_logs = []
+MAX_DQN_LOGS = 15
+spawn_rate = 0.35            # probability of spawning in simulation (0.0 - 1.0)
+simulated_emergencies = []   # list of emergency vehicles to spawn on demand
+dqn_cycle_time = 5           # DQN Optimizer decision cycle time (seconds)
+simulation_speed_limit = 8   # Max vehicle speed (3 to 15 pixels/frame)
+
+def log_dqn_event(message):
+    global dqn_logs
+    timestamp = time.strftime("%H:%M:%S")
+    dqn_logs.append(f"[{timestamp}] {message}")
+    if len(dqn_logs) > MAX_DQN_LOGS:
+        dqn_logs.pop(0)
+
 # Tracking history for flow counting (Phase 1)
 vehicle_tracks = {}         # track_id -> centroid list
 counted_vehicles = set()    # track_ids that have crossed the line
@@ -84,24 +101,28 @@ class TrafficSimulator:
         
         # Spawn new vehicles randomly based on green phase
         # If Phase 0 is green, spawn more in Lane A (flowing), otherwise spawn in Lane B
-        spawn_prob = 0.35
-        if len(self.vehicles) < 10 and random.random() < spawn_prob:
+        global simulated_emergencies, spawn_rate, simulation_speed_limit
+        v_type = None
+        if simulated_emergencies:
+            v_type = simulated_emergencies.pop(0)
+        elif len(self.vehicles) < 10 and random.random() < spawn_rate:
             v_type = random.choices(
                 self.classes, 
                 weights=[0.60, 0.20, 0.08, 0.08, 0.02, 0.02], 
                 k=1
             )[0]
-            
+        
+        if v_type is not None:
             direction = random.choice([1, -1]) # 1: top->down (A), -1: bottom->up (B)
             if direction == 1:
                 y = 0
                 x = random.randint(int(self.width * 0.55), int(self.width * 0.85))
                 # If Lane B is green, vehicles in Lane A slow down/stop at red light (y = 150)
-                speed = random.randint(5, 8)
+                speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
             else:
                 y = self.height
                 x = random.randint(int(self.width * 0.15), int(self.width * 0.45))
-                speed = random.randint(-8, -5)
+                speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
                 
             self.vehicles.append({
                 "id": random.randint(100, 999),
@@ -123,18 +144,34 @@ class TrafficSimulator:
         stop_line_up = int(self.height * 0.65)   # y=312
         
         for v in self.vehicles:
+            # Dynamically adjust speed based on speed limit slider
+            if v["speed"] > 0:
+                v["speed"] = min(v["speed"], simulation_speed_limit)
+                if v["speed"] < max(3, simulation_speed_limit - 3):
+                    v["speed"] = max(3, simulation_speed_limit - 3)
+            else:
+                v["speed"] = max(v["speed"], -simulation_speed_limit)
+                if v["speed"] > -max(3, simulation_speed_limit - 3):
+                    v["speed"] = -max(3, simulation_speed_limit - 3)
+
             speed = v["speed"]
             y = v["y"]
             
-            # Simulate stopping at red lights
-            if current_phase == 1 and speed > 0 and y < stop_line_down and (y + speed) >= stop_line_down:
-                # Lane A has red light, vehicle stops
-                y = stop_line_down
-            elif current_phase == 0 and speed < 0 and y > stop_line_up and (y + speed) <= stop_line_up:
-                # Lane B has red light, vehicle stops
-                y = stop_line_up
+            # Simulate stopping at red lights (only regular vehicles stop, emergency vehicles do not stop)
+            if current_phase == 1 and speed > 0 and y <= stop_line_down and v["type"] not in ["ambulence", "fire_truck"]:
+                # Lane A has red light, vehicle stops at stop_line_down
+                if y + speed >= stop_line_down:
+                    y = stop_line_down
+                else:
+                    y += speed
+            elif current_phase == 0 and speed < 0 and y >= stop_line_up and v["type"] not in ["ambulence", "fire_truck"]:
+                # Lane B has red light, vehicle stops at stop_line_up
+                if y + speed <= stop_line_up:
+                    y = stop_line_up
+                else:
+                    y += speed
             else:
-                # Normal motion
+                # Normal motion (green light, emergency vehicle, or already crossed intersection)
                 y += speed
                 
             v["y"] = y
@@ -251,6 +288,9 @@ def process_frame(frame):
     cv2.line(annotated_frame, (0, line_y), (frame.shape[1], line_y), (10, 185, 16), 2)
     cv2.putText(annotated_frame, "COUNTING LINE (FLOW)", (20, line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (10, 185, 16), 2)
 
+    lane_a_count = 0
+    lane_b_count = 0
+
     if detections.id is not None:
         track_ids = detections.id.int().tolist()
         for idx, box in enumerate(detections):
@@ -263,6 +303,12 @@ def process_frame(frame):
                 # Centroid calculations
                 cx = (x1 + x2) // 2
                 cy = (y1 + y2) // 2
+                
+                # Spatial lane classification (right side is Lane A, left side is Lane B)
+                if cx > frame.shape[1] // 2:
+                    lane_a_count += 1
+                else:
+                    lane_b_count += 1
                 
                 # 2. Tracking History & Line Crossing Math (Phase 1)
                 if track_id not in vehicle_tracks:
@@ -321,7 +367,9 @@ def process_frame(frame):
         "bus": counts["bus"],
         "truck": counts["truck"],
         "ambulence": counts["ambulence"],
-        "fire_truck": counts["fire_truck"]
+        "fire_truck": counts["fire_truck"],
+        "lane_a": lane_a_count,
+        "lane_b": lane_b_count
     }
 
     return annotated_frame, total
@@ -367,6 +415,7 @@ def camera_worker():
     
     last_history_update = time.time()
     last_rl_update = time.time()
+    had_emergency = False
     
     while streaming_active:
         frame = None
@@ -378,6 +427,11 @@ def camera_worker():
             frame = simulator.draw_frame()
             
             total_in_frame = sum(counts.values())
+            
+            # Count actual lanes in the simulator
+            sim_lane_a = sum(1 for v in simulator.vehicles if v["speed"] > 0)
+            sim_lane_b = sum(1 for v in simulator.vehicles if v["speed"] < 0)
+            
             vehicle_counts = {
                 "total": total_in_frame,
                 "two_wheeler": counts["motorcycle"],
@@ -385,7 +439,9 @@ def camera_worker():
                 "bus": counts["bus"],
                 "truck": counts["truck"],
                 "ambulence": counts["ambulence"],
-                "fire_truck": counts["fire_truck"]
+                "fire_truck": counts["fire_truck"],
+                "lane_a": sim_lane_a,
+                "lane_b": sim_lane_b
             }
             emergency_alert = alert
             time.sleep(0.08) # 12.5 FPS
@@ -408,35 +464,63 @@ def camera_worker():
         # Every 5 seconds, query the DQN agent for an optimization decision
         current_time = time.time()
         
-        # Calculate simulated queue lengths based on current count distributions
-        # Lane A: representing North-South. Lane B: representing East-West
-        # In real stream, we can map vehicles detected on left half (Lane B) vs right half (Lane A)
-        queue_a = vehicle_counts["car"] + vehicle_counts["truck"]
-        queue_b = vehicle_counts["two_wheeler"] + vehicle_counts["bus"]
+        # Calculate queue lengths based on spatial lanes
+        queue_a = vehicle_counts.get("lane_a", 0)
+        queue_b = vehicle_counts.get("lane_b", 0)
         
-        if current_time - last_rl_update >= 5.0:
-            if emergency_alert:
-                # Emergency override corridor (forces green on the emergency vehicle lane)
-                # If ambulance/firetruck is detected, override DQN to clear the congestion
-                print("[RL Agent] Emergency vehicle override active. Forcing green corridor.")
-                current_phase = 0 # Corresponds to Lane A corridor
-                signal_time = 1
-            else:
-                # Query PyTorch DQN Agent
-                action = get_rl_action(queue_a, queue_b, current_phase)
-                if action == 1:
-                    print(f"[RL Agent] State: A={queue_a}, B={queue_b}, Phase={current_phase} -> Decision: SWITCH PHASE")
-                    current_phase = 1 - current_phase # Toggle green phase
-                else:
-                    print(f"[RL Agent] State: A={queue_a}, B={queue_b}, Phase={current_phase} -> Decision: KEEP PHASE")
-                
-                # Reset countdown timer
-                signal_time = 5
-            last_rl_update = current_time
+        if control_mode == "manual":
+            current_phase = manual_override_phase
+            signal_time = 99
+            if current_time - last_rl_update >= dqn_cycle_time:
+                log_dqn_event(f"MANUAL MODE: Active phase forced to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}")
+                last_rl_update = current_time
+            had_emergency = False
         else:
-            # Decrement countdown timer
-            elapsed = int(current_time - last_rl_update)
-            signal_time = max(1, 5 - elapsed)
+            if emergency_alert:
+                current_phase = 0
+                signal_time = 1
+                if not had_emergency:
+                    print("[RL Agent] Emergency vehicle override active. Forcing green corridor.")
+                    log_dqn_event("EMERGENCY OVERRIDE: Emergency vehicle detected! Forcing Green Corridor on Lane A.")
+                    had_emergency = True
+                last_rl_update = current_time
+            else:
+                if had_emergency:
+                    print("[RL Agent] Emergency clear. Resuming normal control mode.")
+                    log_dqn_event("EMERGENCY OVERRIDE: Clear. Resuming normal control mode.")
+                    had_emergency = False
+                    last_rl_update = current_time - dqn_cycle_time  # Force immediate cycle step
+                
+                if control_mode == "timer":
+                    if current_time - last_rl_update >= dqn_cycle_time:
+                        current_phase = 1 - current_phase # Toggle green phase
+                        signal_time = dqn_cycle_time
+                        log_dqn_event(f"TIMER MODE: Automatically switched green phase to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}")
+                        last_rl_update = current_time
+                    else:
+                        elapsed = int(current_time - last_rl_update)
+                        signal_time = max(1, dqn_cycle_time - elapsed)
+                else: # dqn mode
+                    if current_time - last_rl_update >= dqn_cycle_time:
+                        # Query PyTorch DQN Agent
+                        action = get_rl_action(queue_a, queue_b, current_phase)
+                        decision_str = ""
+                        if action == 1:
+                            current_phase = 1 - current_phase # Toggle green phase
+                            decision_str = f"SWITCH PHASE to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
+                        else:
+                            decision_str = f"KEEP PHASE on Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
+                        
+                        print(f"[RL Agent] State: A={queue_a}, B={queue_b}, Phase={current_phase} -> Decision: {decision_str}")
+                        log_dqn_event(f"DQN Decision: {decision_str} (Queue A: {queue_a}, Queue B: {queue_b})")
+                        
+                        # Reset countdown timer
+                        signal_time = dqn_cycle_time
+                        last_rl_update = current_time
+                    else:
+                        # Decrement countdown timer
+                        elapsed = int(current_time - last_rl_update)
+                        signal_time = max(1, dqn_cycle_time - elapsed)
             
         # Update history queue for LSTM forecasting at steady intervals
         if current_time - last_history_update >= 2.5:
@@ -565,8 +649,112 @@ def stats():
         "alert": emergency_alert,
         "avg_total_vehicles": round(avg_total_vehicles, 1),
         "current_phase": current_phase,
-        "total_crossed": total_crossed
+        "total_crossed": total_crossed,
+        "control_mode": control_mode,
+        "dqn_logs": dqn_logs,
+        "spawn_rate": spawn_rate,
+        "dqn_cycle_time": dqn_cycle_time,
+        "simulation_speed_limit": simulation_speed_limit
     })
+
+
+@app.route("/set_control_mode")
+def set_control_mode():
+    global control_mode, manual_override_phase
+    from flask import request
+    mode = request.args.get("mode", "dqn")
+    phase = request.args.get("phase", "0")
+    if mode in ["dqn", "manual", "timer"]:
+        control_mode = mode
+    try:
+        manual_override_phase = int(phase)
+    except ValueError:
+        pass
+    return jsonify({
+        "status": "success",
+        "control_mode": control_mode,
+        "manual_override_phase": manual_override_phase
+    })
+
+
+@app.route("/trigger_emergency")
+def trigger_emergency():
+    global simulated_emergencies
+    from flask import request
+    v_type = request.args.get("type", "ambulence")
+    if v_type in ["ambulence", "fire_truck"]:
+        simulated_emergencies.append(v_type)
+        return jsonify({
+            "status": "success",
+            "message": f"{v_type} queued for simulation spawn"
+        })
+    return jsonify({
+        "status": "error",
+        "message": "Invalid emergency vehicle type"
+    }), 400
+
+
+@app.route("/set_spawn_rate")
+def set_spawn_rate():
+    global spawn_rate
+    from flask import request
+    rate_str = request.args.get("rate", "0.35")
+    try:
+        rate = float(rate_str)
+        if 0.0 <= rate <= 1.0:
+            spawn_rate = rate
+            return jsonify({
+                "status": "success",
+                "spawn_rate": spawn_rate
+            })
+    except ValueError:
+        pass
+    return jsonify({
+        "status": "error",
+        "message": "Invalid spawn rate value"
+    }), 400
+
+
+@app.route("/set_cycle_time")
+def set_cycle_time():
+    global dqn_cycle_time
+    from flask import request
+    cycle_str = request.args.get("cycle", "5")
+    try:
+        cycle = int(cycle_str)
+        if 2 <= cycle <= 30:
+            dqn_cycle_time = cycle
+            return jsonify({
+                "status": "success",
+                "dqn_cycle_time": dqn_cycle_time
+            })
+    except ValueError:
+        pass
+    return jsonify({
+        "status": "error",
+        "message": "Invalid cycle value. Must be between 2 and 30."
+    }), 400
+
+
+@app.route("/set_speed_limit")
+def set_speed_limit():
+    global simulation_speed_limit
+    from flask import request
+    speed_str = request.args.get("speed", "8")
+    try:
+        speed = int(speed_str)
+        if 3 <= speed <= 15:
+            simulation_speed_limit = speed
+            return jsonify({
+                "status": "success",
+                "simulation_speed_limit": simulation_speed_limit
+            })
+    except ValueError:
+        pass
+    return jsonify({
+        "status": "error",
+        "message": "Invalid speed limit value. Must be between 3 and 15."
+    }), 400
 
 
 if __name__ == "__main__":
