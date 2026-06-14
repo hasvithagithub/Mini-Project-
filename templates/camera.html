@@ -15,6 +15,7 @@
             --primary: #3B82F6;
             --primary-glow: rgba(59, 130, 246, 0.25);
             --success: #10B981;
+            --success-glow: rgba(16, 185, 129, 0.2);
             --warning: #F59E0B;
             --danger: #EF4444;
             --danger-glow: rgba(239, 68, 68, 0.35);
@@ -74,6 +75,7 @@
             text-decoration: none;
             color: var(--text-primary);
             background-color: rgba(255, 255, 255, 0.05);
+            user-select: none;
         }
 
         .btn:hover {
@@ -82,18 +84,30 @@
             border-color: rgba(255,255,255,0.15);
         }
 
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #1D4ED8 100%);
+            color: #FFFFFF;
+            border: none;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4F8FF7 0%, #2563EB 100%);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+
         .main-content {
-            max-width: 1400px;
+            max-width: 1440px;
             width: 100%;
             margin: 30px auto;
             padding: 0 40px;
             flex-grow: 1;
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1.6fr 1fr;
             gap: 30px;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
@@ -108,6 +122,9 @@
             -webkit-backdrop-filter: blur(20px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .card:hover {
@@ -118,7 +135,6 @@
             font-family: 'Space Grotesk', sans-serif;
             font-size: 16px;
             font-weight: 600;
-            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -126,7 +142,7 @@
             padding-bottom: 12px;
         }
 
-        /* Stream box */
+        /* Stream box and overlay */
         .video-container {
             width: 100%;
             border-radius: 12px;
@@ -145,11 +161,13 @@
             height: 100%;
             object-fit: cover;
             display: none;
+            transition: filter 0.1s, transform 0.2s ease;
         }
 
         .stream-offline-msg {
             color: var(--text-secondary);
             text-align: center;
+            z-index: 10;
         }
 
         .stream-offline-msg h3 {
@@ -162,21 +180,167 @@
             font-size: 13px;
         }
 
+        /* CCTV gridlines */
+        .cctv-grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+            z-index: 5;
+        }
+
+        .cctv-grid-overlay.active {
+            display: block;
+        }
+
+        .grid-line-h {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: rgba(16, 185, 129, 0.25);
+        }
+
+        .grid-line-v {
+            position: absolute;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: rgba(16, 185, 129, 0.25);
+        }
+
+        .grid-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(16, 185, 129, 0.6);
+            border-radius: 50%;
+        }
+
+        .grid-crosshair::before, .grid-crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(16, 185, 129, 0.6);
+        }
+        
+        .grid-crosshair::before {
+            top: 50%;
+            left: -10px;
+            width: 60px;
+            height: 1px;
+        }
+
+        .grid-crosshair::after {
+            left: 50%;
+            top: -10px;
+            width: 1px;
+            height: 60px;
+        }
+
+        /* Controls Panel */
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .controls-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding-bottom: 8px;
+        }
+
+        .sliders-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .sliders-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .control-val {
+            color: var(--primary);
+            font-family: monospace;
+            font-weight: 700;
+        }
+
+        /* Range slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
         /* Telemetry list */
         .telemetry-list {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
         }
 
         .telemetry-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-radius: 10px;
             background: rgba(255,255,255,0.01);
             border: 1px solid var(--border-color);
+            transition: background 0.3s;
+        }
+
+        .telemetry-item:hover {
+            background: rgba(255,255,255,0.03);
         }
 
         .telemetry-label {
@@ -187,16 +351,16 @@
         .telemetry-value {
             font-family: 'Space Grotesk', sans-serif;
             font-weight: 600;
-            font-size: 15px;
+            font-size: 14px;
         }
 
         .indicator {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background-color: var(--danger);
-            margin-right: 8px;
+            background-color: var(--text-secondary);
+            margin-right: 6px;
         }
 
         .indicator.green {
@@ -213,6 +377,63 @@
         @keyframes blink {
             from { opacity: 0.4; }
             to { opacity: 1; }
+        }
+
+        /* System status section */
+        .system-resource {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--primary) 0%, #10B981 100%);
+            width: 0%;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Diagnostics Terminal Console */
+        .terminal-console {
+            background: #030611;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            height: 140px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #34D399;
+            line-height: 1.6;
+        }
+
+        .terminal-console::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .terminal-console::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .terminal-console::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
         }
 
         .footer {
@@ -236,51 +457,143 @@
     </header>
 
     <div class="main-content">
-        <!-- Live view column -->
-        <div class="card">
-            <div class="card-header">
-                <span>Live Frame Stream</span>
-                <span id="diagnostic-status" style="font-size: 12px; color: var(--text-secondary); font-weight: 700;">OFFLINE</span>
-            </div>
-            <div class="video-container">
-                <div class="stream-offline-msg" id="msg-offline">
-                    <h3>📷 Camera Stream Suspended</h3>
-                    <p>Activate the camera node from the main overview dashboard to view the diagnostics stream.</p>
+        <!-- Left Column: Video Feed & Adjustments -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <div class="card">
+                <div class="card-header">
+                    <span>Live Frame Stream</span>
+                    <span id="diagnostic-status" style="font-size: 12px; color: var(--text-secondary); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-secondary); display: inline-block;"></span> OFFLINE
+                    </span>
                 </div>
-                <img id="diagnostic-img" class="stream-view" src="" alt="Diagnostic Feed">
+                
+                <div class="video-container">
+                    <!-- CCTV Gridlines overlay -->
+                    <div class="cctv-grid-overlay" id="cctv-grid">
+                        <div class="grid-line-h" style="top: 25%;"></div>
+                        <div class="grid-line-h" style="top: 50%;"></div>
+                        <div class="grid-line-h" style="top: 75%;"></div>
+                        <div class="grid-line-v" style="left: 25%;"></div>
+                        <div class="grid-line-v" style="left: 50%;"></div>
+                        <div class="grid-line-v" style="left: 75%;"></div>
+                        <div class="grid-crosshair"></div>
+                    </div>
+
+                    <div class="stream-offline-msg" id="msg-offline">
+                        <h3>📷 Camera Stream Suspended</h3>
+                        <p style="margin-top: 5px;">Activate the camera node from the main overview dashboard to view the diagnostics stream.</p>
+                    </div>
+                    <img id="diagnostic-img" class="stream-view" src="" alt="Diagnostic Feed">
+                </div>
+
+                <!-- Feed Adjustments -->
+                <div class="controls-panel">
+                    <div class="controls-title">CCTV Calibration & Filters</div>
+                    <div class="sliders-grid">
+                        <div class="control-item">
+                            <div class="control-header">
+                                <span>Feed Brightness</span>
+                                <span class="control-val" id="val-brightness">100%</span>
+                            </div>
+                            <input type="range" id="slider-brightness" min="50" max="150" value="100">
+                        </div>
+                        <div class="control-item">
+                            <div class="control-header">
+                                <span>Feed Contrast</span>
+                                <span class="control-val" id="val-contrast">100%</span>
+                            </div>
+                            <input type="range" id="slider-contrast" min="50" max="150" value="100">
+                        </div>
+                        <div class="control-item">
+                            <div class="control-header">
+                                <span>Digital Zoom</span>
+                                <span class="control-val" id="val-zoom">1.0x</span>
+                            </div>
+                            <input type="range" id="slider-zoom" min="100" max="200" value="100">
+                        </div>
+                        <div class="control-item" style="justify-content: flex-end;">
+                            <button class="btn" id="btn-toggle-grid" style="width: 100%; justify-content: center; height: 38px;">
+                                🎯 Enable Calibration Grid
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Diagnostics column -->
-        <div class="card">
-            <div class="card-header">Camera Telemetry</div>
-            <div class="telemetry-list">
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Signal Source</span>
-                    <span class="telemetry-value">Auto IP Camera / fallback</span>
+        <!-- Right Column: System Resources & Telemetry -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <!-- Telemetry Parameters -->
+            <div class="card">
+                <div class="card-header">Camera Node Parameters</div>
+                <div class="telemetry-list">
+                    <div class="telemetry-item">
+                        <span class="telemetry-label">Signal Source</span>
+                        <span class="telemetry-value" id="val-source">Simulated Traffic / Fallback</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label">Inference Model</span>
+                        <span class="telemetry-value" style="color: var(--primary);">YOLOv8n (YOLOv8 Nano)</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label">Stream Protocol</span>
+                        <span class="telemetry-value" style="font-family: monospace;">MJPEG over HTTP</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label">Target Framerate</span>
+                        <span class="telemetry-value" id="fps-val">0.0 fps</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label">Connection Status</span>
+                        <span class="telemetry-value" id="conn-status" style="color: var(--text-secondary);">Offline</span>
+                    </div>
                 </div>
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Inference Model</span>
-                    <span class="telemetry-value" style="color: var(--primary);">YOLOv8 Nano</span>
+            </div>
+
+            <!-- Health & Resources -->
+            <div class="card">
+                <div class="card-header">System Health & Resources</div>
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <div class="system-resource">
+                        <div class="resource-header">
+                            <span>Diagnostic CPU Utilization</span>
+                            <span id="val-res-cpu">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-cpu"></div>
+                        </div>
+                    </div>
+                    <div class="system-resource">
+                        <div class="resource-header">
+                            <span>VRAM Usage (PyTorch CUDA/CPU)</span>
+                            <span id="val-res-vram">0.0 GB / 6.0 GB</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-vram"></div>
+                        </div>
+                    </div>
+                    <div class="system-resource">
+                        <div class="resource-header">
+                            <span>Stream Network Bandwidth</span>
+                            <span id="val-res-net">0.0 MB/s</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-net"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Stream Protocol</span>
-                    <span class="telemetry-value">MJPEG over HTTP</span>
+            </div>
+
+            <!-- Ping Console -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Node Network Diagnostics</span>
+                    <button class="btn btn-primary" id="btn-ping" style="font-size: 11px; padding: 6px 12px; height: 28px;">
+                        ⚡ Run Ping Test
+                    </button>
                 </div>
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Framerate (FPS)</span>
-                    <span class="telemetry-value" id="fps-val">0.0 fps</span>
-                </div>
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Emergency Vehicle Override</span>
-                    <span class="telemetry-value" style="display: flex; align-items: center;">
-                        <span id="override-indicator" class="indicator"></span>
-                        <span id="override-text">Inactive</span>
-                    </span>
-                </div>
-                <div class="telemetry-item">
-                    <span class="telemetry-label">Connection Status</span>
-                    <span class="telemetry-value" id="conn-status" style="color: var(--text-secondary);">Offline</span>
+                <div class="terminal-console" id="diag-console">
+                    [System Idle. Awaiting connection check...]
                 </div>
             </div>
         </div>
@@ -288,6 +601,7 @@
 
     <div class="footer">
         <p>AURA System Diagnostic Suite &copy; 2026. Authorized personnel only.</p>
+        <p style="margin-top: 5px; font-size: 11px; opacity: 0.6;">Powered by PyTorch YOLOv8 tracking interface &amp; local OpenCV frames.</p>
     </div>
 
     <script>
@@ -295,11 +609,156 @@
         const msgOffline = document.getElementById('msg-offline');
         const diagnosticStatus = document.getElementById('diagnostic-status');
         const fpsVal = document.getElementById('fps-val');
-        const overrideIndicator = document.getElementById('override-indicator');
-        const overrideText = document.getElementById('override-text');
         const connStatus = document.getElementById('conn-status');
+        const valSource = document.getElementById('val-source');
+
+        // Adjustments elements
+        const sliderBrightness = document.getElementById('slider-brightness');
+        const valBrightness = document.getElementById('val-brightness');
+        const sliderContrast = document.getElementById('slider-contrast');
+        const valContrast = document.getElementById('val-contrast');
+        const sliderZoom = document.getElementById('slider-zoom');
+        const valZoom = document.getElementById('val-zoom');
+        const btnToggleGrid = document.getElementById('btn-toggle-grid');
+        const cctvGrid = document.getElementById('cctv-grid');
+
+        // Health resources elements
+        const valResCpu = document.getElementById('val-res-cpu');
+        const barCpu = document.getElementById('bar-cpu');
+        const valResVram = document.getElementById('val-res-vram');
+        const barVram = document.getElementById('bar-vram');
+        const valResNet = document.getElementById('val-res-net');
+        const barNet = document.getElementById('bar-net');
+
+        // Ping console elements
+        const btnPing = document.getElementById('btn-ping');
+        const diagConsole = document.getElementById('diag-console');
 
         let checkInterval = null;
+        let healthInterval = null;
+        let isGridActive = false;
+        let activePingTest = false;
+
+        // Apply visual CSS adjustments to image
+        function applyImageAdjustments() {
+            const brightness = sliderBrightness.value;
+            const contrast = sliderContrast.value;
+            const zoom = sliderZoom.value / 100;
+            
+            diagnosticImg.style.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+            diagnosticImg.style.transform = `scale(${zoom})`;
+        }
+
+        // Sliders Listeners
+        sliderBrightness.addEventListener('input', () => {
+            valBrightness.innerText = `${sliderBrightness.value}%`;
+            applyImageAdjustments();
+        });
+
+        sliderContrast.addEventListener('input', () => {
+            valContrast.innerText = `${sliderContrast.value}%`;
+            applyImageAdjustments();
+        });
+
+        sliderZoom.addEventListener('input', () => {
+            valZoom.innerText = `${(sliderZoom.value / 100).toFixed(1)}x`;
+            applyImageAdjustments();
+        });
+
+        // Grid Toggle Listener
+        btnToggleGrid.addEventListener('click', () => {
+            isGridActive = !isGridActive;
+            if (isGridActive) {
+                cctvGrid.classList.add('active');
+                btnToggleGrid.innerText = '🎯 Disable Calibration Grid';
+                btnToggleGrid.style.background = 'rgba(16, 185, 129, 0.1)';
+                btnToggleGrid.style.borderColor = 'var(--success)';
+            } else {
+                cctvGrid.classList.remove('active');
+                btnToggleGrid.innerText = '🎯 Enable Calibration Grid';
+                btnToggleGrid.style.background = 'rgba(255, 255, 255, 0.05)';
+                btnToggleGrid.style.borderColor = 'var(--border-color)';
+            }
+        });
+
+        // Live Log print helper
+        function printConsoleLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            diagConsole.innerHTML += `<br>[${timestamp}] ${message}`;
+            diagConsole.scrollTop = diagConsole.scrollHeight;
+        }
+
+        // Ping test execution
+        btnPing.addEventListener('click', async () => {
+            if (activePingTest) return;
+            activePingTest = true;
+            btnPing.disabled = true;
+            btnPing.innerText = 'Testing...';
+            
+            diagConsole.innerHTML = `[${new Date().toLocaleTimeString()}] Diagnostics test initialized. Pinging node TRF-CAM-081 at 127.0.0.1:5000...`;
+            
+            let pings = 0;
+            let successCount = 0;
+            let totalLatency = 0;
+
+            const pingLoop = setInterval(async () => {
+                pings++;
+                const startTime = performance.now();
+                try {
+                    const res = await fetch('/stats');
+                    if (res.ok) {
+                        const latency = Math.round(performance.now() - startTime);
+                        totalLatency += latency;
+                        successCount++;
+                        printConsoleLog(`Ping #${pings}: SUCCESS | latency=${latency}ms | status=${res.status}`);
+                    } else {
+                        printConsoleLog(`Ping #${pings}: FAILED | status=${res.status}`);
+                    }
+                } catch (err) {
+                    printConsoleLog(`Ping #${pings}: TIMEOUT | error=${err.message}`);
+                }
+
+                if (pings >= 5) {
+                    clearInterval(pingLoop);
+                    const avgLatency = successCount > 0 ? Math.round(totalLatency / successCount) : 0;
+                    printConsoleLog(`--- TRF-CAM-081 ping statistics ---`);
+                    printConsoleLog(`5 packets transmitted, ${successCount} received, ${5 - successCount} packet loss.`);
+                    printConsoleLog(`Avg Latency = ${avgLatency}ms | Connection Quality = ${successCount === 5 ? 'EXCELLENT' : (successCount >= 3 ? 'MODERATE' : 'POOR')}`);
+                    btnPing.disabled = false;
+                    btnPing.innerText = '⚡ Run Ping Test';
+                    activePingTest = false;
+                }
+            }, 800);
+        });
+
+        // Update system health and telemetry progress bars
+        function updateSystemHealth(active) {
+            if (!active) {
+                valResCpu.innerText = '0%';
+                barCpu.style.width = '0%';
+                valResVram.innerText = '0.0 GB / 6.0 GB';
+                barVram.style.width = '0%';
+                valResNet.innerText = '0.0 MB/s';
+                barNet.style.width = '0%';
+                return;
+            }
+
+            // Simulate fluctuating resources
+            const cpu = Math.floor(Math.random() * 25) + 35; // 35-60%
+            const vramVal = (Math.random() * 0.4 + 1.2).toFixed(1); // 1.2-1.6 GB
+            const vramPct = (vramVal / 6.0 * 100).toFixed(0);
+            const net = (Math.random() * 1.5 + 3.8).toFixed(1); // 3.8-5.3 MB/s
+            const netPct = (net / 8.0 * 100).toFixed(0);
+
+            valResCpu.innerText = `${cpu}%`;
+            barCpu.style.width = `${cpu}%`;
+            
+            valResVram.innerText = `${vramVal} GB / 6.0 GB`;
+            barVram.style.width = `${vramPct}%`;
+
+            valResNet.innerText = `${net} MB/s`;
+            barNet.style.width = `${netPct}%`;
+        }
 
         // Check if stream is active by calling stats
         async function checkStreamStatus() {
@@ -308,28 +767,34 @@
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // If server stats are loading, camera is running
                     msgOffline.style.display = 'none';
                     diagnosticImg.style.display = 'block';
                     if (!diagnosticImg.src.includes('video_feed')) {
                         diagnosticImg.src = '/video_feed';
+                        printConsoleLog("CCTV node connected. Stream feed active.");
                     }
                     
-                    diagnosticStatus.innerText = 'STREAM ACTIVE';
+                    diagnosticStatus.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success);"></span> STREAM ACTIVE';
                     diagnosticStatus.style.color = 'var(--success)';
-                    fpsVal.innerText = '20.0 fps'; // target stream rate
+                    
+                    // Show standard Bounding box/simulator info
+                    if (data.counts.total > 0) {
+                        fpsVal.innerText = '12.5 fps';
+                    } else {
+                        fpsVal.innerText = '0.0 fps';
+                    }
+                    
                     connStatus.innerText = 'Connected';
                     connStatus.style.color = 'var(--success)';
 
-                    if (data.alert) {
-                        overrideIndicator.className = 'indicator red';
-                        overrideText.innerText = 'Active (Override)';
-                        overrideText.style.color = 'var(--danger)';
+                    // Set simulation vs hardware source
+                    if (data.control_mode === 'manual' || data.spawn_rate) {
+                        valSource.innerText = 'Simulated Intersection (Offline)';
                     } else {
-                        overrideIndicator.className = 'indicator';
-                        overrideText.innerText = 'Inactive';
-                        overrideText.style.color = 'var(--text-secondary)';
+                        valSource.innerText = 'Active Camera Stream (Hardware)';
                     }
+
+                    updateSystemHealth(true);
                 } else {
                     handleOffline();
                 }
@@ -342,14 +807,12 @@
             msgOffline.style.display = 'block';
             diagnosticImg.style.display = 'none';
             diagnosticImg.src = '';
-            diagnosticStatus.innerText = 'OFFLINE';
+            diagnosticStatus.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-secondary); display: inline-block;"></span> OFFLINE';
             diagnosticStatus.style.color = 'var(--text-secondary)';
             fpsVal.innerText = '0.0 fps';
-            overrideIndicator.className = 'indicator';
-            overrideText.innerText = 'Inactive';
-            overrideText.style.color = 'var(--text-secondary)';
             connStatus.innerText = 'Offline';
             connStatus.style.color = 'var(--text-secondary)';
+            updateSystemHealth(false);
         }
 
         checkInterval = setInterval(checkStreamStatus, 1000);

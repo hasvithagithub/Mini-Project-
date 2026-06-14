@@ -94,18 +94,24 @@ class TrafficSimulator:
             "fire_truck": (0, 0, 255)    # Red
         }
         self.frame_count = 0
+        self.camera_view_mode = "top-down"
         
     def update(self):
-        global total_crossed
+        global total_crossed, current_phase, simulated_emergencies, spawn_rate, simulation_speed_limit
         self.frame_count += 1
         
-        # Spawn new vehicles randomly based on green phase
-        # If Phase 0 is green, spawn more in Lane A (flowing), otherwise spawn in Lane B
-        global simulated_emergencies, spawn_rate, simulation_speed_limit
+        # Toggle camera view every 15 seconds
+        current_time = time.time()
+        if int(current_time) % 30 < 15:
+            self.camera_view_mode = "top-down"
+        else:
+            self.camera_view_mode = "angled"
+
+        # Spawn new vehicles randomly based on spawn rate
         v_type = None
         if simulated_emergencies:
             v_type = simulated_emergencies.pop(0)
-        elif len(self.vehicles) < 10 and random.random() < spawn_rate:
+        elif len(self.vehicles) < 16 and random.random() < spawn_rate:
             v_type = random.choices(
                 self.classes, 
                 weights=[0.60, 0.20, 0.08, 0.08, 0.02, 0.02], 
@@ -113,152 +119,342 @@ class TrafficSimulator:
             )[0]
         
         if v_type is not None:
-            direction = random.choice([1, -1]) # 1: top->down (A), -1: bottom->up (B)
-            if direction == 1:
-                y = 0
-                x = random.randint(int(self.width * 0.55), int(self.width * 0.85))
-                # If Lane B is green, vehicles in Lane A slow down/stop at red light (y = 150)
-                speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            axis = random.choice(["v", "h"])
+            direction = random.choice([1, -1])
+            
+            if axis == "v":
+                if direction == 1: # Southbound (top -> down)
+                    x = random.randint(260, 300)
+                    y = 0
+                    speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                else: # Northbound (bottom -> up)
+                    x = random.randint(340, 380)
+                    y = self.height
+                    speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
             else:
-                y = self.height
-                x = random.randint(int(self.width * 0.15), int(self.width * 0.45))
-                speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                if direction == 1: # Eastbound (left -> right)
+                    x = 0
+                    y = random.randint(260, 300)
+                    speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                else: # Westbound (right -> left)
+                    x = self.width
+                    y = random.randint(180, 220)
+                    speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            
+            # Base sizes (w, h) for vertical
+            if v_type in ["car", "ambulence"]:
+                base_size = (30, 48)
+            elif v_type == "motorcycle":
+                base_size = (16, 28)
+            else: # bus or truck
+                base_size = (42, 75)
                 
+            # If horizontal, swap width and height
+            size = base_size if axis == "v" else (base_size[1], base_size[0])
+            
             self.vehicles.append({
                 "id": random.randint(100, 999),
                 "x": x,
                 "y": y,
                 "speed": speed,
                 "type": v_type,
+                "axis": axis,
+                "direction": direction,
                 "crossed": False,
-                "size": (35, 55) if v_type in ["car", "ambulence"] else ((18, 35) if v_type == "motorcycle" else (48, 85))
+                "size": size
             })
             
-        # Move vehicles and check line crossing at y = 240
+        # Group and sort vehicles by lane to apply queuing logic
+        lanes = {
+            "sb": [], # Southbound
+            "nb": [], # Northbound
+            "eb": [], # Eastbound
+            "wb": []  # Westbound
+        }
+        for v in self.vehicles:
+            if v["axis"] == "v":
+                if v["speed"] > 0:
+                    lanes["sb"].append(v)
+                else:
+                    lanes["nb"].append(v)
+            else:
+                if v["speed"] > 0:
+                    lanes["eb"].append(v)
+                else:
+                    lanes["wb"].append(v)
+                    
+        lanes["sb"].sort(key=lambda v: v["y"], reverse=True)
+        lanes["nb"].sort(key=lambda v: v["y"], reverse=False)
+        lanes["eb"].sort(key=lambda v: v["x"], reverse=True)
+        lanes["wb"].sort(key=lambda v: v["x"], reverse=False)
+        
         active_vehicles = []
         counts = {c: 0 for c in self.classes}
         emergency_detected = False
         
-        # Intersection stop lines (simulating red lights)
-        stop_line_down = int(self.height * 0.35) # y=168
-        stop_line_up = int(self.height * 0.65)   # y=312
-        
-        for v in self.vehicles:
-            # Dynamically adjust speed based on speed limit slider
-            if v["speed"] > 0:
-                v["speed"] = min(v["speed"], simulation_speed_limit)
-                if v["speed"] < max(3, simulation_speed_limit - 3):
-                    v["speed"] = max(3, simulation_speed_limit - 3)
-            else:
-                v["speed"] = max(v["speed"], -simulation_speed_limit)
-                if v["speed"] > -max(3, simulation_speed_limit - 3):
-                    v["speed"] = -max(3, simulation_speed_limit - 3)
-
-            speed = v["speed"]
-            y = v["y"]
+        # 1. Southbound Queue Update
+        for i, v in enumerate(lanes["sb"]):
+            speed = min(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            v["speed"] = speed
+            stop_y = 160
+            can_move = True
             
-            # Simulate stopping at red lights (only regular vehicles stop, emergency vehicles do not stop)
-            if current_phase == 1 and speed > 0 and y <= stop_line_down and v["type"] not in ["ambulence", "fire_truck"]:
-                # Lane A has red light, vehicle stops at stop_line_down
-                if y + speed >= stop_line_down:
-                    y = stop_line_down
-                else:
-                    y += speed
-            elif current_phase == 0 and speed < 0 and y >= stop_line_up and v["type"] not in ["ambulence", "fire_truck"]:
-                # Lane B has red light, vehicle stops at stop_line_up
-                if y + speed <= stop_line_up:
-                    y = stop_line_up
-                else:
-                    y += speed
-            else:
-                # Normal motion (green light, emergency vehicle, or already crossed intersection)
-                y += speed
-                
-            v["y"] = y
+            # Stop if red light (Phase 1) and above the stop line
+            if current_phase == 1 and v["y"] <= stop_y and v["type"] not in ["ambulence", "fire_truck"]:
+                if v["y"] + speed >= stop_y:
+                    v["y"] = stop_y
+                    can_move = False
             
-            # Keep if inside window padding
-            if (speed > 0 and y < self.height + 80) or (speed < 0 and y > -80):
+            if can_move:
+                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                    v_ahead = lanes["sb"][i-1]
+                    safety_dist = v_ahead["size"][1] + 15
+                    if v["y"] + speed + safety_dist >= v_ahead["y"]:
+                        v["y"] = max(v["y"], v_ahead["y"] - safety_dist)
+                    else:
+                        v["y"] += speed
+                else:
+                    v["y"] += speed
+            
+            if v["y"] < self.height + 80:
                 active_vehicles.append(v)
-                # Count if visible on screen
-                if 0 <= y <= self.height:
-                    counts[v["type"]] += 1
-                    if v["type"] in ["ambulence", "fire_truck"]:
-                        emergency_detected = True
+                
+        # 2. Northbound Queue Update
+        for i, v in enumerate(lanes["nb"]):
+            speed = -min(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            v["speed"] = speed
+            stop_y = 320
+            can_move = True
+            
+            # Stop if red light (Phase 1) and below the stop line
+            if current_phase == 1 and v["y"] >= stop_y and v["type"] not in ["ambulence", "fire_truck"]:
+                if v["y"] + speed <= stop_y:
+                    v["y"] = stop_y
+                    can_move = False
+            
+            if can_move:
+                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                    v_ahead = lanes["nb"][i-1]
+                    safety_dist = v_ahead["size"][1] + 15
+                    if v["y"] + speed - safety_dist <= v_ahead["y"]:
+                        v["y"] = min(v["y"], v_ahead["y"] + safety_dist)
+                    else:
+                        v["y"] += speed
+                else:
+                    v["y"] += speed
+            
+            if v["y"] > -80:
+                active_vehicles.append(v)
+                
+        # 3. Eastbound Queue Update
+        for i, v in enumerate(lanes["eb"]):
+            speed = min(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            v["speed"] = speed
+            stop_x = 240
+            can_move = True
+            
+            # Stop if red light (Phase 0) and left of stop line
+            if current_phase == 0 and v["x"] <= stop_x and v["type"] not in ["ambulence", "fire_truck"]:
+                if v["x"] + speed >= stop_x:
+                    v["x"] = stop_x
+                    can_move = False
+            
+            if can_move:
+                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                    v_ahead = lanes["eb"][i-1]
+                    safety_dist = v_ahead["size"][0] + 15
+                    if v["x"] + speed + safety_dist >= v_ahead["x"]:
+                        v["x"] = max(v["x"], v_ahead["x"] - safety_dist)
+                    else:
+                        v["x"] += speed
+                else:
+                    v["x"] += speed
+            
+            if v["x"] < self.width + 80:
+                active_vehicles.append(v)
+                
+        # 4. Westbound Queue Update
+        for i, v in enumerate(lanes["wb"]):
+            speed = -min(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+            v["speed"] = speed
+            stop_x = 400
+            can_move = True
+            
+            # Stop if red light (Phase 0) and right of stop line
+            if current_phase == 0 and v["x"] >= stop_x and v["type"] not in ["ambulence", "fire_truck"]:
+                if v["x"] + speed <= stop_x:
+                    v["x"] = stop_x
+                    can_move = False
+            
+            if can_move:
+                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                    v_ahead = lanes["wb"][i-1]
+                    safety_dist = v_ahead["size"][0] + 15
+                    if v["x"] + speed - safety_dist <= v_ahead["x"]:
+                        v["x"] = min(v["x"], v_ahead["x"] + safety_dist)
+                    else:
+                        v["x"] += speed
+                else:
+                    v["x"] += speed
+            
+            if v["x"] > -80:
+                active_vehicles.append(v)
+                
+        # Update crossed counts & check visible screen coordinates
+        for v in active_vehicles:
+            x, y = v["x"], v["y"]
+            
+            if 0 <= x <= self.width and 0 <= y <= self.height:
+                counts[v["type"]] += 1
+                if v["type"] in ["ambulence", "fire_truck"]:
+                    emergency_detected = True
+                    
+            if not v["crossed"]:
+                if v["axis"] == "v":
+                    if (v["speed"] > 0 and y >= 160) or (v["speed"] < 0 and y <= 320):
+                        v["crossed"] = True
+                        total_crossed += 1
+                else:
+                    if (v["speed"] > 0 and x >= 240) or (v["speed"] < 0 and x <= 400):
+                        v["crossed"] = True
+                        total_crossed += 1
                         
-                    # Check line crossing flow (Phase 1)
-                    # Green line is drawn at y = 240 (middle of the screen)
-                    if not v["crossed"]:
-                        if (speed > 0 and y >= 240) or (speed < 0 and y <= 240):
-                            v["crossed"] = True
-                            total_crossed += 1
-                            
         self.vehicles = active_vehicles
         return counts, emergency_detected
-        
+
     def draw_frame(self):
-        # Base background - Dark Charcoal (#111827)
+        # Base canvas - Dark Charcoal
         frame = np.ones((self.height, self.width, 3), dtype=np.uint8)
         frame[:, :, 0] = 39  # B
         frame[:, :, 1] = 24  # G
         frame[:, :, 2] = 17  # R
         
-        # Draw road bounds
-        cv2.rectangle(frame, (int(self.width * 0.1), 0), (int(self.width * 0.9), self.height), (55, 65, 81), -1) # Asphalt gray
+        # 1. Draw Roads (Asphalt Gray)
+        # Vertical Road (N-S)
+        cv2.rectangle(frame, (240, 0), (400, self.height), (55, 65, 81), -1)
+        # Horizontal Road (E-W)
+        cv2.rectangle(frame, (0, 160), (self.width, 320), (55, 65, 81), -1)
         
-        # Center lane dividing line
-        cv2.line(frame, (int(self.width * 0.5), 0), (int(self.width * 0.5), self.height), (0, 215, 255), 3) # Yellow line
+        # Center Intersection Square overlap cleanup
+        cv2.rectangle(frame, (240, 160), (400, 320), (55, 65, 81), -1)
         
-        # Left and right boundary lines
-        cv2.line(frame, (int(self.width * 0.1), 0), (int(self.width * 0.1), self.height), (209, 213, 219), 2)
-        cv2.line(frame, (int(self.width * 0.9), 0), (int(self.width * 0.9), self.height), (209, 213, 219), 2)
+        # 2. Draw Yellow Lane Dividers
+        # N-S Yellow Divider lines
+        cv2.line(frame, (320, 0), (320, 160), (0, 215, 255), 2)
+        cv2.line(frame, (320, 320), (320, self.height), (0, 215, 255), 2)
+        # E-W Yellow Divider lines
+        cv2.line(frame, (0, 240), (240, 240), (0, 215, 255), 2)
+        cv2.line(frame, (400, 240), (self.width, 240), (0, 215, 255), 2)
+        
+        # 3. Draw White Boundary Lines
+        # N-S borders
+        cv2.line(frame, (240, 0), (240, 160), (209, 213, 219), 2)
+        cv2.line(frame, (240, 320), (240, self.height), (209, 213, 219), 2)
+        cv2.line(frame, (400, 0), (400, 160), (209, 213, 219), 2)
+        cv2.line(frame, (400, 320), (400, self.height), (209, 213, 219), 2)
+        # E-W borders
+        cv2.line(frame, (0, 160), (240, 160), (209, 213, 219), 2)
+        cv2.line(frame, (400, 160), (self.width, 160), (209, 213, 219), 2)
+        cv2.line(frame, (0, 320), (240, 320), (209, 213, 219), 2)
+        cv2.line(frame, (400, 320), (self.width, 320), (209, 213, 219), 2)
         
         # Dashed dividers
-        for y in range(0, self.height, 40):
-            if (y // 40) % 2 == 0:
-                cv2.line(frame, (int(self.width * 0.3), y), (int(self.width * 0.3), y + 20), (156, 163, 175), 1)
-                cv2.line(frame, (int(self.width * 0.7), y), (int(self.width * 0.7), y + 20), (156, 163, 175), 1)
-                
-        # Draw Counting Line (Phase 1) - Bright green line at y = 240
-        cv2.line(frame, (int(self.width * 0.1), 240), (int(self.width * 0.9), 240), (10, 185, 16), 2)
-        cv2.putText(frame, "COUNTING LINE (FLOW)", (int(self.width * 0.12), 232), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (10, 185, 16), 1)
+        for y in range(0, 160, 30):
+            cv2.line(frame, (280, y), (280, y + 15), (156, 163, 175), 1)
+            cv2.line(frame, (360, y), (360, y + 15), (156, 163, 175), 1)
+        for y in range(320, self.height, 30):
+            cv2.line(frame, (280, y), (280, y + 15), (156, 163, 175), 1)
+            cv2.line(frame, (360, y), (360, y + 15), (156, 163, 175), 1)
+        for x in range(0, 240, 30):
+            cv2.line(frame, (x, 200), (x + 15, 200), (156, 163, 175), 1)
+            cv2.line(frame, (x, 280), (x + 15, 280), (156, 163, 175), 1)
+        for x in range(400, self.width, 30):
+            cv2.line(frame, (x, 200), (x + 15, 200), (156, 163, 175), 1)
+            cv2.line(frame, (x, 280), (x + 15, 280), (156, 163, 175), 1)
+
+        # 4. Draw Counting Lines (Green entry indicators)
+        # N-S Entries
+        cv2.line(frame, (240, 158), (320, 158), (10, 185, 16), 2)
+        cv2.line(frame, (320, 322), (400, 322), (10, 185, 16), 2)
+        # E-W Entries
+        cv2.line(frame, (238, 240), (238, 320), (10, 185, 16), 2)
+        cv2.line(frame, (402, 160), (402, 240), (10, 185, 16), 2)
         
-        # Draw Stop Lines
-        stop_color_down = (0, 0, 255) if current_phase == 1 else (0, 255, 0)
-        stop_color_up = (0, 0, 255) if current_phase == 0 else (0, 255, 0)
-        # Lane A stop line
-        cv2.line(frame, (int(self.width * 0.5), 168), (int(self.width * 0.9), 168), stop_color_down, 3)
-        # Lane B stop line
-        cv2.line(frame, (int(self.width * 0.1), 312), (int(self.width * 0.5), 312), stop_color_up, 3)
+        # 5. Draw Traffic Lights/Stop Lines
+        color_ns = (0, 255, 0) if current_phase == 0 else (0, 0, 255)
+        color_ew = (0, 255, 0) if current_phase == 1 else (0, 0, 255)
         
-        # Draw vehicles
+        # Southbound Stop
+        cv2.line(frame, (240, 160), (320, 160), color_ns, 3)
+        # Northbound Stop
+        cv2.line(frame, (320, 320), (400, 320), color_ns, 3)
+        # Eastbound Stop
+        cv2.line(frame, (240, 240), (240, 320), color_ew, 3)
+        # Westbound Stop
+        cv2.line(frame, (400, 160), (400, 240), color_ew, 3)
+
+        # 6. Draw Vehicles
         for v in self.vehicles:
             x, y = v["x"], v["y"]
             w, h = v["size"]
             color = self.colors[v["type"]]
             
-            # Vehicle shadow/wheels
-            cv2.rectangle(frame, (x - w//2 - 2, y - h//2), (x - w//2 + 4, y - h//4), (0,0,0), -1)
-            cv2.rectangle(frame, (x + w//2 - 4, y - h//2), (x + w//2 + 2, y - h//4), (0,0,0), -1)
-            cv2.rectangle(frame, (x - w//2 - 2, y + h//4), (x - w//2 + 4, y + h//2), (0,0,0), -1)
-            cv2.rectangle(frame, (x + w//2 - 4, y + h//4), (x + w//2 + 2, y + h//2), (0,0,0), -1)
-            
-            # Vehicle chassis
+            # Simple wheels/shadow
+            if v["axis"] == "v":
+                cv2.rectangle(frame, (x - w//2 - 2, y - h//2), (x - w//2 + 4, y - h//4), (0,0,0), -1)
+                cv2.rectangle(frame, (x + w//2 - 4, y - h//2), (x + w//2 + 2, y - h//4), (0,0,0), -1)
+                cv2.rectangle(frame, (x - w//2 - 2, y + h//4), (x - w//2 + 4, y + h//2), (0,0,0), -1)
+                cv2.rectangle(frame, (x + w//2 - 4, y + h//4), (x + w//2 + 2, y + h//2), (0,0,0), -1)
+            else:
+                cv2.rectangle(frame, (x - w//2, y - h//2 - 2), (x - w//4, y - h//2 + 4), (0,0,0), -1)
+                cv2.rectangle(frame, (x + h//4, y - h//2 - 2), (x + w//2, y - h//2 + 4), (0,0,0), -1)
+                cv2.rectangle(frame, (x - w//2, y + h//2 - 4), (x - w//4, y + h//2 + 2), (0,0,0), -1)
+                cv2.rectangle(frame, (x + h//4, y + h//2 - 4), (x + w//2, y + h//2 + 2), (0,0,0), -1)
+                
+            # Chassis
             cv2.rectangle(frame, (x - w//2, y - h//2), (x + w//2, y + h//2), color, -1)
             
-            # Windshield/cabin
-            cv2.rectangle(frame, (x - w//2 + 3, y - h//3), (x + w//2 - 3, y - h//4), (75, 85, 99), -1)
-            cv2.rectangle(frame, (x - w//2 + 3, y + h//4), (x + w//2 - 3, y + h//3), (75, 85, 99), -1)
-            
-            # Flashing lights for ambulance/fire truck
+            # Windshield
+            if v["axis"] == "v":
+                cv2.rectangle(frame, (x - w//2 + 3, y - h//3), (x + w//2 - 3, y - h//4), (75, 85, 99), -1)
+                cv2.rectangle(frame, (x - w//2 + 3, y + h//4), (x + w//2 - 3, y + h//3), (75, 85, 99), -1)
+            else:
+                cv2.rectangle(frame, (x - w//3, y - h//2 + 3), (x - w//4, y + h//2 - 3), (75, 85, 99), -1)
+                cv2.rectangle(frame, (x + w//4, y - h//2 + 3), (x + w//3, y + h//2 - 3), (75, 85, 99), -1)
+                
+            # Flashing light for emergency
             if v["type"] in ["ambulence", "fire_truck"]:
                 light_color = (0, 0, 255) if (self.frame_count // 3) % 2 == 0 else (255, 0, 0)
-                cv2.circle(frame, (x, y - h//6), 6, light_color, -1)
-                cv2.circle(frame, (x, y + h//6), 6, (255, 255, 255), -1)
-                
-            # Bounding box & text overlays (simulates live YOLO detections)
-            cv2.rectangle(frame, (x - w//2 - 4, y - h//2 - 4), (x + w//2 + 4, y + h//2 + 4), color, 2)
-            cv2.putText(frame, f"{v['type']} (ID:{v['id']})", (x - w//2, y - h//2 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+                if v["axis"] == "v":
+                    cv2.circle(frame, (x, y - h//6), 6, light_color, -1)
+                    cv2.circle(frame, (x, y + h//6), 6, (255, 255, 255), -1)
+                else:
+                    cv2.circle(frame, (x - w//6, y), 6, light_color, -1)
+                    cv2.circle(frame, (x + w//6, y), 6, (255, 255, 255), -1)
+                    
+            # Sim YOLO bbox & tag
+            cv2.rectangle(frame, (x - w//2 - 2, y - h//2 - 2), (x + w//2 + 2, y + h//2 + 2), color, 1)
+            cv2.putText(frame, f"{v['type']}", (x - w//2, y - h//2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
+
+        # 7. Apply perspective transformation if angled mode is active
+        if self.camera_view_mode == "angled":
+            src_pts = np.float32([[0, 0], [self.width, 0], [self.width, self.height], [0, self.height]])
+            # Wide-angle corner perspective mapping
+            dst_pts = np.float32([
+                [80, 100],
+                [560, 40],
+                [600, 380],
+                [40, 420]
+            ])
+            M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+            frame = cv2.warpPerspective(frame, M, (self.width, self.height), borderValue=(39, 24, 17))
             
+        # Draw Camera View HUD Overlay
+        cv2.rectangle(frame, (10, 10), (290, 45), (15, 23, 42), -1)
+        cv2.rectangle(frame, (10, 10), (290, 45), (255, 255, 255), 1)
+        hud_text = "VIEW: AERIAL TOP-DOWN (15s)" if self.camera_view_mode == "top-down" else "VIEW: ANGLED CCTV (15s)"
+        cv2.putText(frame, hud_text, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 215, 255), 2)
+        
         return frame
 
 def process_frame(frame):
@@ -429,8 +625,8 @@ def camera_worker():
             total_in_frame = sum(counts.values())
             
             # Count actual lanes in the simulator
-            sim_lane_a = sum(1 for v in simulator.vehicles if v["speed"] > 0)
-            sim_lane_b = sum(1 for v in simulator.vehicles if v["speed"] < 0)
+            sim_lane_a = sum(1 for v in simulator.vehicles if v["axis"] == "v")
+            sim_lane_b = sum(1 for v in simulator.vehicles if v["axis"] == "h")
             
             vehicle_counts = {
                 "total": total_in_frame,
@@ -476,51 +672,36 @@ def camera_worker():
                 last_rl_update = current_time
             had_emergency = False
         else:
-            if emergency_alert:
-                current_phase = 0
-                signal_time = 1
-                if not had_emergency:
-                    print("[RL Agent] Emergency vehicle override active. Forcing green corridor.")
-                    log_dqn_event("EMERGENCY OVERRIDE: Emergency vehicle detected! Forcing Green Corridor on Lane A.")
-                    had_emergency = True
-                last_rl_update = current_time
-            else:
-                if had_emergency:
-                    print("[RL Agent] Emergency clear. Resuming normal control mode.")
-                    log_dqn_event("EMERGENCY OVERRIDE: Clear. Resuming normal control mode.")
-                    had_emergency = False
-                    last_rl_update = current_time - dqn_cycle_time  # Force immediate cycle step
-                
-                if control_mode == "timer":
-                    if current_time - last_rl_update >= dqn_cycle_time:
+            if control_mode == "timer":
+                if current_time - last_rl_update >= dqn_cycle_time:
+                    current_phase = 1 - current_phase # Toggle green phase
+                    signal_time = dqn_cycle_time
+                    log_dqn_event(f"TIMER MODE: Automatically switched green phase to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}")
+                    last_rl_update = current_time
+                else:
+                    elapsed = int(current_time - last_rl_update)
+                    signal_time = max(1, dqn_cycle_time - elapsed)
+            else: # dqn mode
+                if current_time - last_rl_update >= dqn_cycle_time:
+                    # Query PyTorch DQN Agent
+                    action = get_rl_action(queue_a, queue_b, current_phase)
+                    decision_str = ""
+                    if action == 1:
                         current_phase = 1 - current_phase # Toggle green phase
-                        signal_time = dqn_cycle_time
-                        log_dqn_event(f"TIMER MODE: Automatically switched green phase to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}")
-                        last_rl_update = current_time
+                        decision_str = f"SWITCH PHASE to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
                     else:
-                        elapsed = int(current_time - last_rl_update)
-                        signal_time = max(1, dqn_cycle_time - elapsed)
-                else: # dqn mode
-                    if current_time - last_rl_update >= dqn_cycle_time:
-                        # Query PyTorch DQN Agent
-                        action = get_rl_action(queue_a, queue_b, current_phase)
-                        decision_str = ""
-                        if action == 1:
-                            current_phase = 1 - current_phase # Toggle green phase
-                            decision_str = f"SWITCH PHASE to Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
-                        else:
-                            decision_str = f"KEEP PHASE on Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
-                        
-                        print(f"[RL Agent] State: A={queue_a}, B={queue_b}, Phase={current_phase} -> Decision: {decision_str}")
-                        log_dqn_event(f"DQN Decision: {decision_str} (Queue A: {queue_a}, Queue B: {queue_b})")
-                        
-                        # Reset countdown timer
-                        signal_time = dqn_cycle_time
-                        last_rl_update = current_time
-                    else:
-                        # Decrement countdown timer
-                        elapsed = int(current_time - last_rl_update)
-                        signal_time = max(1, dqn_cycle_time - elapsed)
+                        decision_str = f"KEEP PHASE on Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}"
+                    
+                    print(f"[RL Agent] State: A={queue_a}, B={queue_b}, Phase={current_phase} -> Decision: {decision_str}")
+                    log_dqn_event(f"DQN Decision: {decision_str} (Queue A: {queue_a}, Queue B: {queue_b})")
+                    
+                    # Reset countdown timer
+                    signal_time = dqn_cycle_time
+                    last_rl_update = current_time
+                else:
+                    # Decrement countdown timer
+                    elapsed = int(current_time - last_rl_update)
+                    signal_time = max(1, dqn_cycle_time - elapsed)
             
         # Update history queue for LSTM forecasting at steady intervals
         if current_time - last_history_update >= 2.5:
