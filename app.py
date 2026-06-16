@@ -95,6 +95,26 @@ class TrafficSimulator:
         }
         self.frame_count = 0
         self.camera_view_mode = "top-down"
+
+    def is_intersection_occupied(self, axis):
+        for v in self.vehicles:
+            if v["axis"] == axis:
+                w, h = v["size"]
+                if axis == "h":
+                    if v["speed"] > 0: # Eastbound
+                        if 242 <= v["x"] and v["x"] - w//2 < 400:
+                            return True
+                    else: # Westbound
+                        if v["x"] <= 398 and v["x"] + w//2 > 240:
+                            return True
+                else: # vertical
+                    if v["speed"] > 0: # Southbound
+                        if 162 <= v["y"] and v["y"] - h//2 < 320:
+                            return True
+                    else: # Northbound
+                        if v["y"] <= 318 and v["y"] + h//2 > 160:
+                            return True
+        return False
         
     def update(self):
         global total_crossed, current_phase, simulated_emergencies, spawn_rate, simulation_speed_limit
@@ -106,6 +126,14 @@ class TrafficSimulator:
             self.camera_view_mode = "top-down"
         else:
             self.camera_view_mode = "angled"
+
+        # Separate lane grouping before spawning check to verify entries are clear
+        lanes_pre = {
+            "sb": [v for v in self.vehicles if v["axis"] == "v" and v["speed"] > 0],
+            "nb": [v for v in self.vehicles if v["axis"] == "v" and v["speed"] < 0],
+            "eb": [v for v in self.vehicles if v["axis"] == "h" and v["speed"] > 0],
+            "wb": [v for v in self.vehicles if v["axis"] == "h" and v["speed"] < 0],
+        }
 
         # Spawn new vehicles randomly based on spawn rate
         v_type = None
@@ -119,50 +147,64 @@ class TrafficSimulator:
             )[0]
         
         if v_type is not None:
-            axis = random.choice(["v", "h"])
-            direction = random.choice([1, -1])
-            
-            if axis == "v":
-                if direction == 1: # Southbound (top -> down)
-                    x = random.randint(260, 300)
-                    y = 0
-                    speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
-                else: # Northbound (bottom -> up)
-                    x = random.randint(340, 380)
-                    y = self.height
-                    speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
-            else:
-                if direction == 1: # Eastbound (left -> right)
-                    x = 0
-                    y = random.randint(260, 300)
-                    speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
-                else: # Westbound (right -> left)
-                    x = self.width
-                    y = random.randint(180, 220)
-                    speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
-            
-            # Base sizes (w, h) for vertical
-            if v_type in ["car", "ambulence"]:
-                base_size = (30, 48)
-            elif v_type == "motorcycle":
-                base_size = (16, 28)
-            else: # bus or truck
-                base_size = (42, 75)
+            # Check which lanes are clear at the entry point to avoid spawn overlap
+            available_lanes = []
+            if not any(v["y"] < 80 for v in lanes_pre["sb"]):
+                available_lanes.append(("v", 1))
+            if not any(v["y"] > self.height - 80 for v in lanes_pre["nb"]):
+                available_lanes.append(("v", -1))
+            if not any(v["x"] < 80 for v in lanes_pre["eb"]):
+                available_lanes.append(("h", 1))
+            if not any(v["x"] > self.width - 80 for v in lanes_pre["wb"]):
+                available_lanes.append(("h", -1))
                 
-            # If horizontal, swap width and height
-            size = base_size if axis == "v" else (base_size[1], base_size[0])
-            
-            self.vehicles.append({
-                "id": random.randint(100, 999),
-                "x": x,
-                "y": y,
-                "speed": speed,
-                "type": v_type,
-                "axis": axis,
-                "direction": direction,
-                "crossed": False,
-                "size": size
-            })
+            if available_lanes:
+                axis, direction = random.choice(available_lanes)
+                if axis == "v":
+                    if direction == 1: # Southbound (top -> down)
+                        x = random.randint(260, 300)
+                        y = 0
+                        speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                    else: # Northbound (bottom -> up)
+                        x = random.randint(340, 380)
+                        y = self.height
+                        speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                else:
+                    if direction == 1: # Eastbound (left -> right)
+                        x = 0
+                        y = random.randint(260, 300)
+                        speed = random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                    else: # Westbound (right -> left)
+                        x = self.width
+                        y = random.randint(180, 220)
+                        speed = -random.randint(max(3, simulation_speed_limit - 3), simulation_speed_limit)
+                
+                # Base sizes (w, h) for vertical
+                if v_type in ["car", "ambulence"]:
+                    base_size = (30, 48)
+                elif v_type == "motorcycle":
+                    base_size = (16, 28)
+                else: # bus or truck
+                    base_size = (42, 75)
+                    
+                # If horizontal, swap width and height
+                size = base_size if axis == "v" else (base_size[1], base_size[0])
+                
+                self.vehicles.append({
+                    "id": random.randint(100, 999),
+                    "x": x,
+                    "y": y,
+                    "speed": speed,
+                    "type": v_type,
+                    "axis": axis,
+                    "direction": direction,
+                    "crossed": False,
+                    "size": size
+                })
+            else:
+                # Put emergency vehicle back in queue if the spawn point is blocked
+                if v_type in ["ambulence", "fire_truck"]:
+                    simulated_emergencies.insert(0, v_type)
             
         # Group and sort vehicles by lane to apply queuing logic
         lanes = {
@@ -192,6 +234,26 @@ class TrafficSimulator:
         counts = {c: 0 for c in self.classes}
         emergency_detected = False
         
+        # Determine if there is an active emergency vehicle and on which lane
+        active_emergency_lane = None
+        for v in self.vehicles:
+            if v["type"] in ["ambulence", "fire_truck"]:
+                if v["axis"] == "v":
+                    # Active N-S emergency vehicle (hasn't cleared intersection at y=320 or y=160 depending on direction)
+                    if (v["speed"] > 0 and v["y"] < 320) or (v["speed"] < 0 and v["y"] > 160):
+                        active_emergency_lane = "A"
+                        break
+                elif v["axis"] == "h":
+                    # Active E-W emergency vehicle
+                    if (v["speed"] > 0 and v["x"] < 400) or (v["speed"] < 0 and v["x"] > 240):
+                        active_emergency_lane = "B"
+                        break
+
+        if active_emergency_lane == "A":
+            current_phase = 0
+        elif active_emergency_lane == "B":
+            current_phase = 1
+            
         # 1. Southbound Queue Update
         for i, v in enumerate(lanes["sb"]):
             speed = min(max(3, simulation_speed_limit - 3), simulation_speed_limit)
@@ -199,14 +261,15 @@ class TrafficSimulator:
             stop_y = 160
             can_move = True
             
-            # Stop if red light (Phase 1) and above the stop line
-            if current_phase == 1 and v["y"] <= stop_y and v["type"] not in ["ambulence", "fire_truck"]:
+            # Stop if red light OR if the intersection is occupied by horizontal vehicles
+            is_blocked = (v["y"] <= stop_y) and (current_phase == 1 or self.is_intersection_occupied("h"))
+            if is_blocked and v["type"] not in ["ambulence", "fire_truck"]:
                 if v["y"] + speed >= stop_y:
                     v["y"] = stop_y
                     can_move = False
             
             if can_move:
-                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                if i > 0:
                     v_ahead = lanes["sb"][i-1]
                     safety_dist = v_ahead["size"][1] + 15
                     if v["y"] + speed + safety_dist >= v_ahead["y"]:
@@ -226,14 +289,15 @@ class TrafficSimulator:
             stop_y = 320
             can_move = True
             
-            # Stop if red light (Phase 1) and below the stop line
-            if current_phase == 1 and v["y"] >= stop_y and v["type"] not in ["ambulence", "fire_truck"]:
+            # Stop if red light OR if the intersection is occupied by horizontal vehicles
+            is_blocked = (v["y"] >= stop_y) and (current_phase == 1 or self.is_intersection_occupied("h"))
+            if is_blocked and v["type"] not in ["ambulence", "fire_truck"]:
                 if v["y"] + speed <= stop_y:
                     v["y"] = stop_y
                     can_move = False
             
             if can_move:
-                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                if i > 0:
                     v_ahead = lanes["nb"][i-1]
                     safety_dist = v_ahead["size"][1] + 15
                     if v["y"] + speed - safety_dist <= v_ahead["y"]:
@@ -253,14 +317,15 @@ class TrafficSimulator:
             stop_x = 240
             can_move = True
             
-            # Stop if red light (Phase 0) and left of stop line
-            if current_phase == 0 and v["x"] <= stop_x and v["type"] not in ["ambulence", "fire_truck"]:
+            # Stop if red light OR if the intersection is occupied by vertical vehicles
+            is_blocked = (v["x"] <= stop_x) and (current_phase == 0 or self.is_intersection_occupied("v"))
+            if is_blocked and v["type"] not in ["ambulence", "fire_truck"]:
                 if v["x"] + speed >= stop_x:
                     v["x"] = stop_x
                     can_move = False
             
             if can_move:
-                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                if i > 0:
                     v_ahead = lanes["eb"][i-1]
                     safety_dist = v_ahead["size"][0] + 15
                     if v["x"] + speed + safety_dist >= v_ahead["x"]:
@@ -280,14 +345,15 @@ class TrafficSimulator:
             stop_x = 400
             can_move = True
             
-            # Stop if red light (Phase 0) and right of stop line
-            if current_phase == 0 and v["x"] >= stop_x and v["type"] not in ["ambulence", "fire_truck"]:
+            # Stop if red light OR if the intersection is occupied by vertical vehicles
+            is_blocked = (v["x"] >= stop_x) and (current_phase == 0 or self.is_intersection_occupied("v"))
+            if is_blocked and v["type"] not in ["ambulence", "fire_truck"]:
                 if v["x"] + speed <= stop_x:
                     v["x"] = stop_x
                     can_move = False
             
             if can_move:
-                if i > 0 and v["type"] not in ["ambulence", "fire_truck"]:
+                if i > 0:
                     v_ahead = lanes["wb"][i-1]
                     safety_dist = v_ahead["size"][0] + 15
                     if v["x"] + speed - safety_dist <= v_ahead["x"]:
@@ -320,7 +386,7 @@ class TrafficSimulator:
                         total_crossed += 1
                         
         self.vehicles = active_vehicles
-        return counts, emergency_detected
+        return counts, emergency_detected, active_emergency_lane
 
     def draw_frame(self):
         # Base canvas - Dark Charcoal
@@ -616,10 +682,11 @@ def camera_worker():
     while streaming_active:
         frame = None
         total_in_frame = 0
+        active_em_lane = None
         
         if simulation_mode:
             # 1. Run Simulator
-            counts, alert = simulator.update()
+            counts, alert, active_em_lane = simulator.update()
             frame = simulator.draw_frame()
             
             total_in_frame = sum(counts.values())
@@ -664,7 +731,14 @@ def camera_worker():
         queue_a = vehicle_counts.get("lane_a", 0)
         queue_b = vehicle_counts.get("lane_b", 0)
         
-        if control_mode == "manual":
+        if simulation_mode and active_em_lane is not None:
+            # Emergency Priority Corridor Override
+            signal_time = 99
+            if not had_emergency:
+                log_dqn_event(f"EMERGENCY OVERRIDE: Priority green corridor activated for Lane {'A (N-S)' if current_phase == 0 else 'B (E-W)'}")
+                had_emergency = True
+            last_rl_update = current_time # Postpone decisions until emergency clears
+        elif control_mode == "manual":
             current_phase = manual_override_phase
             signal_time = 99
             if current_time - last_rl_update >= dqn_cycle_time:
@@ -672,6 +746,7 @@ def camera_worker():
                 last_rl_update = current_time
             had_emergency = False
         else:
+            had_emergency = False
             if control_mode == "timer":
                 if current_time - last_rl_update >= dqn_cycle_time:
                     current_phase = 1 - current_phase # Toggle green phase

@@ -961,9 +961,15 @@
             lightBGreen.classList.remove('active');
 
             if (isAlert) {
-                lightAGreen.classList.add('active');
-                lightBRed.classList.add('active');
-                signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY EVAC CORRIDOR (LANE A GREEN)</span>';
+                if (currentPhase === 0) {
+                    lightAGreen.classList.add('active');
+                    lightBRed.classList.add('active');
+                    signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY CORRIDOR (LANE A GREEN)</span>';
+                } else {
+                    lightARed.classList.add('active');
+                    lightBGreen.classList.add('active');
+                    signalStateText.innerHTML = '<span style="color: var(--danger); font-weight: bold;">EMERGENCY CORRIDOR (LANE B GREEN)</span>';
+                }
             } else {
                 if (currentPhase === 0) {
                     lightAGreen.classList.add('active');
