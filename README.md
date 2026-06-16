@@ -56,10 +56,6 @@ Toggle between three advanced intersection control modes designed for a 4-way ch
     python app.py
     ```
 
-4.  **Open the Dashboard**:
-    Open your browser and navigate to:
-    *   Main Command Center: [http://127.0.0.1:5000](http://127.0.0.1:5000)
-    *   Diagnostics Interface: [http://127.0.0.1:5000/camera](http://127.0.0.1:5000/camera)
 
 ---
 
