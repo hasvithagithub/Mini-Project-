@@ -691,9 +691,9 @@ def camera_worker():
             
             total_in_frame = sum(counts.values())
             
-            # Count actual lanes in the simulator
-            sim_lane_a = sum(1 for v in simulator.vehicles if v["axis"] == "v")
-            sim_lane_b = sum(1 for v in simulator.vehicles if v["axis"] == "h")
+            # Count actual lanes in the simulator (excluding vehicles that have already crossed the intersection)
+            sim_lane_a = sum(1 for v in simulator.vehicles if v["axis"] == "v" and not v["crossed"])
+            sim_lane_b = sum(1 for v in simulator.vehicles if v["axis"] == "h" and not v["crossed"])
             
             vehicle_counts = {
                 "total": total_in_frame,
